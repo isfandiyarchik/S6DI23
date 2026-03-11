@@ -1804,7 +1804,7 @@ def excel_import_start(message):
     bot.register_next_step_handler(msg, handle_excel_import)
 
 def handle_excel_import(message):
-    if message.text == "⬅️ Артқа":
+    if message.text = "⬅️ Артқа":
         bot.send_message(message.chat.id, "📊 Excel басқарыу", reply_markup=excel_submenu())
         return
     if not message.document:
