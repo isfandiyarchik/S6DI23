@@ -3270,6 +3270,7 @@ def call_ai(messages_list):
             data = _json.dumps({"contents": [{"parts": parts_}]}).encode()
             url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
                    f"gemini-1.5-flash:generateContent?key={gemini_key}"
+    )
             req = urllib.request.Request(url, data=data,
                 headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=30) as r:
