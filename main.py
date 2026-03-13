@@ -3267,18 +3267,19 @@ def call_ai(messages_list):
             import urllib.request
             import json as _json
             contents = []
-for m in messages_list:
-    if m["role"] == "system":
-        contents.append({"role": "user", "parts": [{"text": m["content"]}]})
-        contents.append({"role": "model", "parts": [{"text": "Түсіндім."}]})
-    elif m["role"] == "user":
-        contents.append({"role": "user", "parts": [{"text": m["content"]}]})
-    elif m["role"] == "assistant":
-        contents.append({"role": "model", "parts": [{"text": m["content"]}]})
-data = _json.dumps({"contents": contents}).encode()
-            url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-                   f"gemini-1.5-flash:generateContent?key={gemini_key}"
-    )
+            for m in messages_list:
+                if m["role"] == "system":
+                    contents.append({"role": "user", "parts": [{"text": m["content"]}]})
+                    contents.append({"role": "model", "parts": [{"text": "Түсіндім."}]})
+                elif m["role"] == "user":
+                    contents.append({"role": "user", "parts": [{"text": m["content"]}]})
+                elif m["role"] == "assistant":
+                    contents.append({"role": "model", "parts": [{"text": m["content"]}]})
+            data = _json.dumps({"contents": contents}).encode()
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"gemini-1.5-flash:generateContent?key={gemini_key}"
+            )
             req = urllib.request.Request(url, data=data,
                 headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=30) as r:
