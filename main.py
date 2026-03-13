@@ -3189,172 +3189,26 @@ def handle_sebep_file(message, sebep_text):
         "✅ <b>Себебиңиз жиберилди!</b>\nАдминлер хабарланды.",
         reply_markup=main_menu(uid))
 
-# ── AI КӨМЕКШІ — DB-ге сақталатын тарих ──────────────────────
-AI_MAX_HISTORY = 20
-
-def get_ai_history(uid):
-    """AI тарихын DB-ден оқыу"""
-    conn, cursor = get_db()
-    try:
-        cursor.execute("SELECT history FROM ai_history WHERE user_id=%s", (uid,))
-        row = cursor.fetchone()
-        if not row: return []
-        return json.loads(row[0])
-    except Exception as e:
-        logger.warning(f"get_ai_history({uid}): {e}")
-        return []
-    finally:
-        cursor.close()
-        release_db(conn)
-
-def set_ai_history(uid, history):
-    """AI тарихын DB-ге сақлау"""
-    trimmed = history[-AI_MAX_HISTORY:]
-    conn, cursor = get_db()
-    try:
-        cursor.execute(
-            "INSERT INTO ai_history(user_id,history,updated_at) VALUES(%s,%s,%s) "
-            "ON CONFLICT(user_id) DO UPDATE SET history=excluded.history,updated_at=excluded.updated_at",
-            (uid, json.dumps(trimmed, ensure_ascii=False), now_uz()))
-        conn.commit()
-    except Exception as e:
-        logger.warning(f"set_ai_history({uid}): {e}")
-    finally:
-        cursor.close()
-        release_db(conn)
-
-def clear_ai_history(uid):
-    """AI тарихын өшириу"""
-    conn, cursor = get_db()
-    try:
-        cursor.execute("DELETE FROM ai_history WHERE user_id=%s", (uid,))
-        conn.commit()
-    except Exception as e:
-        logger.warning(f"clear_ai_history({uid}): {e}")
-    finally:
-        cursor.close()
-        release_db(conn)
-
-def call_ai(messages_list):
-    """OpenAI → Gemini → Groq fallback"""
-    openai_key = os.environ.get("OPENAI_API_KEY")
-    gemini_key = os.environ.get("GEMINI_API_KEY")
-    groq_key = os.environ.get("GROQ_API_KEY")
-
-    if openai_key:
-        try:
-            import urllib.request
-            import json as _json
-            data = _json.dumps({
-                "model": "gpt-4o-mini",
-                "messages": messages_list,
-                "max_tokens": 1500
-            }).encode()
-            req = urllib.request.Request(
-                "https://api.openai.com/v1/chat/completions",
-                data=data,
-                headers={
-                    "Authorization": f"Bearer {openai_key}",
-                    "Content-Type": "application/json"
-                })
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return _json.loads(r.read())["choices"][0]["message"]["content"]
-        except Exception as e:
-            logger.warning(f"OpenAI қате: {e}")
-
-    if gemini_key:
-        try:
-            import urllib.request
-            import json as _json
-            parts_ = [{"text": m["content"]} for m in messages_list if m["role"] != "system"]
-            data = _json.dumps({"contents": [{"parts": parts_}]}).encode()
-            url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-                   f"gemini-pro:generateContent?key={gemini_key}")
-            req = urllib.request.Request(url, data=data,
-                headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return _json.loads(r.read())["candidates"][0]["content"]["parts"][0]["text"]
-        except Exception as e:
-            logger.warning(f"Gemini қате: {e}")
-
-    if groq_key:
-            try:
-              import urllib.request
-              import json as _json
-              data = _json.dumps({
-                "model": "llama-3.3-70b-versatile",
-                "messages": messages_list,
-                "max_tokens": 1500
-            }).encode()
-            req = urllib.request.Request(
-                "https://api.groq.com/openai/v1/chat/completions",
-                data=data,
-                headers={
-                    "Authorization": f"Bearer {groq_key}",
-                    "Content-Type": "application/json"
-                })
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return _json.loads(r.read())["choices"][0]["message"]["content"]
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode()
-            logger.warning(f"Groq қате: {e.code} - {error_body}")
-        except Exception as e:
-            logger.warning(f"Groq қате: {e}")
-
-    return None
-
-AI_SYSTEM_PROMPT = (
-    "Сен S6-DI-23 студент группасының AI көмекшисисең. "
-    "Студентлерге барлық тилде (қарақалпақша,қазақша,өзбекше, орысша, английский) жууап бер. "
-    "Сорауға дурыс, қысқа хәм анық жууап бер.")
-
-@bot.message_handler(func=lambda m: m.text == "🤖 AI Көмекши")
-@check_access
-def ai_menu(message):
-    uid = message.from_user.id
-    set_user_state(uid, "ai_chat")
-    history = get_ai_history(uid)
-    count = len(history) // 2
-    markup = types.InlineKeyboardMarkup()
-    if count > 0:
-        markup.add(types.InlineKeyboardButton(
-            f"🗑 Тарихты тазалау ({count} сорау)", callback_data="ai_clear"))
-    bot.send_message(message.chat.id,
-        "🤖 <b>AI Көмекши</b>\n\n"
-        "Мен ChatGPT / Gemini негизинде жұмыс истеймен.\n"
-        "Кез-келген тилде сорау қоя аласыз!\n\n"
-        "Шығыу үшын <b>⬅️ Артқа</b> басыңыз.",
-        reply_markup=markup if count > 0 else back_menu())
-
-@bot.callback_query_handler(func=lambda c: c.data == "ai_clear")
-@check_access_cb
-def ai_clear_history(call):
-    clear_ai_history(call.from_user.id)
-    bot.answer_callback_query(call.id, "✅ Тарих тазаланды!")
-    try:
-        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
-    except Exception:
-        pass
-    bot.send_message(call.message.chat.id,
-        "✅ Тарих тазаланды! Сорау қоя аласыз:", reply_markup=back_menu())
-
-@bot.message_handler(func=lambda m: get_user_state(m.from_user.id) == "ai_chat")
-@check_access
-def handle_ai_message(message):
-# ============================================================
-# 🤖 AI КӨМЕКШІ
-# ============================================================
-
+# ── AI КӨМЕКШІ ────────────────────────────────────────────────
 _ai_chat_history = {}
 _ai_chat_history_lock = Lock()
 _ai_last_active = {}
+AI_MAX_HISTORY = 20
 
 AI_SYSTEM_PROMPT = (
-    "Сен S6-DI-23 группасының ақыллы көмекшисисең. "
+    "Сен S6-DI-23 группасының ақыллы көмекшisisең. "
     "Сорауларға қысқа, толық және дослық түрде жууап бер. "
-    "Пайдаланушы қай тилде жазса, сол тилде жууап бер (қарақалпақша, қазақша, орысша, английский — бәри болады). "
+    "Пайдаланушы қай тилде жазса, сол тилде жууап бер "
+    "(қарақалпақша, қазақша, орысша, английский — бәри болады). "
     "Егер сорау оқыуға, сабаққа, университетке байланысты болса — итибарлы жууап бер."
 )
+
+def _md_to_html(text: str) -> str:
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text, flags=re.DOTALL)
+    text = re.sub(r'__(.+?)__', r'<u>\1</u>', text, flags=re.DOTALL)
+    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
+    text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
+    return text
 
 def _ai_try_groq(messages: list) -> str:
     import requests
@@ -3364,7 +3218,8 @@ def _ai_try_groq(messages: list) -> str:
     resp = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
-        json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 1000, "temperature": 0.7},
+        json={"model": "llama-3.3-70b-versatile", "messages": messages,
+              "max_tokens": 1000, "temperature": 0.7},
         timeout=30
     )
     resp.raise_for_status()
@@ -3378,7 +3233,8 @@ def _ai_try_openai(messages: list) -> str:
     resp = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
-        json={"model": "gpt-4o-mini", "messages": messages, "max_tokens": 1000, "temperature": 0.7},
+        json={"model": "gpt-4o-mini", "messages": messages,
+              "max_tokens": 1000, "temperature": 0.7},
         timeout=30
     )
     resp.raise_for_status()
@@ -3395,7 +3251,8 @@ def _ai_try_gemini(user_message: str, history: list) -> str:
         contents.append({"role": role, "parts": [{"text": msg["content"]}]})
     contents.append({"role": "user", "parts": [{"text": user_message}]})
     resp = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"gemini-2.0-flash:generateContent?key={api_key}",
         headers={"Content-Type": "application/json"},
         json={
             "system_instruction": {"parts": [{"text": AI_SYSTEM_PROMPT}]},
@@ -3407,7 +3264,7 @@ def _ai_try_gemini(user_message: str, history: list) -> str:
     resp.raise_for_status()
     return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
 
-def ai_ask_groq(user_id: int, user_message: str) -> str:
+def ai_ask(user_id: int, user_message: str) -> str:
     with _ai_chat_history_lock:
         if user_id not in _ai_chat_history:
             _ai_chat_history[user_id] = []
@@ -3432,47 +3289,39 @@ def ai_ask_groq(user_id: int, user_message: str) -> str:
 
     if not answer:
         return (
-            "❌ <b>AI уақытша жұмыс иcтемейди.</b>\n\n"
+            "❌ <b>AI уақытша жұмыс icтемейди.</b>\n\n"
             "Барлық 3 сервис (Groq, OpenAI, Gemini) жууап бермеди.\n"
             "Кейинирек қайталаңыз ямаса admin-ге хабарласыңыз."
         )
 
     with _ai_chat_history_lock:
-        if user_id not in _ai_chat_history:
-            _ai_chat_history[user_id] = []
         _ai_chat_history[user_id].append({"role": "user", "content": user_message})
         _ai_chat_history[user_id].append({"role": "assistant", "content": answer})
-        if len(_ai_chat_history[user_id]) > 20:
-            _ai_chat_history[user_id] = _ai_chat_history[user_id][-20:]
+        if len(_ai_chat_history[user_id]) > AI_MAX_HISTORY:
+            _ai_chat_history[user_id] = _ai_chat_history[user_id][-AI_MAX_HISTORY:]
 
     return answer
 
-def ai_clear_history(user_id: int):
+def ai_clear_history_mem(user_id: int):
     with _ai_chat_history_lock:
         _ai_chat_history.pop(user_id, None)
         _ai_last_active.pop(user_id, None)
 
 def cleanup_ai_history():
-    now = time.time()
+    now_t = time.time()
     with _ai_chat_history_lock:
-        inactive = [uid for uid, t in _ai_last_active.items() if now - t > 7200]
+        inactive = [uid for uid, t in _ai_last_active.items() if now_t - t > 7200]
         for uid in inactive:
             _ai_chat_history.pop(uid, None)
             _ai_last_active.pop(uid, None)
     if inactive:
         logger.info(f"AI history cleanup: {len(inactive)} пайдаланушы тазаланды")
 
-def _md_to_html(text: str) -> str:
-    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text, flags=re.DOTALL)
-    text = re.sub(r'__(.+?)__', r'<u>\1</u>', text, flags=re.DOTALL)
-    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
-    text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
-    return text
-
 @bot.message_handler(func=lambda m: m.text == "🤖 AI Көмекши")
+@check_access
 def ai_menu(message):
-    user_id = message.from_user.id
-    set_user_state(user_id, "ai_chat")
+    uid = message.from_user.id
+    set_user_state(uid, "ai_chat")
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("🗑 Тарихты тазалау")
     markup.row("⬅️ Артқа")
@@ -3480,37 +3329,37 @@ def ai_menu(message):
         "🤖 <b>AI Көмекши иске қосылды!</b>\n\n"
         "✏️ Кез-келген сорауыңызды жазыңыз.\n"
         "🌐 Қай тилде жазсаңыз, сол тилде жууап береди.\n\n"
-        "🗑 Тарихты тазалау — таза сөйлесиу баслау үшын\n"
+        "🗑 Тарихты тазалау — таза сөйлесіу баслау үшын\n"
         "⚡ <i>Groq → OpenAI → Gemini (автоматлы резерв)</i>",
-        reply_markup=markup
-    )
+        reply_markup=markup)
 
-@bot.message_handler(func=lambda m: m.text == "🗑 Тарихты тазалау", content_types=["text"])
-def ai_clear(message):
-    if get_user_state(message.from_user.id) != "ai_chat":
-        return
-    ai_clear_history(message.from_user.id)
-    bot.send_message(message.chat.id, "✅ <b>AI тарихы тазаланды!</b>\nТаза сөйлесіу басланды.")
+@bot.message_handler(func=lambda m: m.text == "🗑 Тарихты тазалау"
+                     and get_user_state(m.from_user.id) == "ai_chat")
+@check_access
+def ai_clear_cmd(message):
+    ai_clear_history_mem(message.from_user.id)
+    bot.send_message(message.chat.id,
+        "✅ <b>AI тарихы тазаланды!</b>\nТаза сөйлесіу басланды.")
 
-@bot.message_handler(content_types=["text"], func=lambda m: get_user_state(m.from_user.id) == "ai_chat")
+@bot.message_handler(
+    content_types=["text"],
+    func=lambda m: get_user_state(m.from_user.id) == "ai_chat"
+                   and m.text not in ("⬅️ Артқа", "🗑 Тарихты тазалау"))
+@check_access
 def ai_chat_handler(message):
-    user_id = message.from_user.id
     text = message.text.strip()
-    if text in ("⬅️ Артқа", "🗑 Тарихты тазалау"):
-        return
     if not text:
         bot.send_message(message.chat.id, "✏️ Сорауыңызды жазыңыз.")
         return
     bot.send_chat_action(message.chat.id, "typing")
     wait_msg = bot.send_message(message.chat.id, "⏳ <i>AI ойланып атыр...</i>")
-    answer = ai_ask_groq(user_id, text)
+    answer = ai_ask(message.from_user.id, text)
     try:
         bot.delete_message(message.chat.id, wait_msg.message_id)
     except Exception:
         pass
-    answer_html = _md_to_html(answer)
     try:
-        bot.send_message(message.chat.id, f"🤖 {answer_html}", parse_mode="HTML")
+        bot.send_message(message.chat.id, f"🤖 {_md_to_html(answer)}", parse_mode="HTML")
     except Exception:
         bot.send_message(message.chat.id, f"🤖 {answer}")
 
