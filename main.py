@@ -3278,25 +3278,28 @@ def call_ai(messages_list):
             logger.warning(f"Gemini қате: {e}")
 
     if groq_key:
-        try:
-            import urllib.request
-            import json as _json
-            data = _json.dumps({
-                "model": "llama-3.3-70b-versatile",  # ← БУЛ ЖЕРДИ ӨЗГЕРТТИК
-                "messages": messages_list,
-                "max_tokens": 1500
-            }).encode()
-            req = urllib.request.Request(
-                "https://api.groq.com/openai/v1/chat/completions",
-                data=data,
-                headers={
-                    "Authorization": f"Bearer {groq_key}",
-                    "Content-Type": "application/json"
-                })
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return _json.loads(r.read())["choices"][0]["message"]["content"]
-        except Exception as e:
-            logger.warning(f"Groq қате: {e}")
+    try:
+        import urllib.request
+        import json as _json
+        data = _json.dumps({
+            "model": "llama-3.3-70b-versatile",
+            "messages": messages_list,
+            "max_tokens": 1500
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/chat/completions",
+            data=data,
+            headers={
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json"
+            })
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return _json.loads(r.read())["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode()
+        logger.warning(f"Groq қате: {e.code} - {error_body}")
+    except Exception as e:
+        logger.warning(f"Groq қате: {e}")
 
     return None
 
