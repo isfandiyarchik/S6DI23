@@ -3266,20 +3266,10 @@ def call_ai(messages_list):
         try:
             import urllib.request
             import json as _json
-            contents = []
-            for m in messages_list:
-                if m["role"] == "system":
-                    contents.append({"role": "user", "parts": [{"text": m["content"]}]})
-                    contents.append({"role": "model", "parts": [{"text": "Түсіндім."}]})
-                elif m["role"] == "user":
-                    contents.append({"role": "user", "parts": [{"text": m["content"]}]})
-                elif m["role"] == "assistant":
-                    contents.append({"role": "model", "parts": [{"text": m["content"]}]})
-            data = _json.dumps({"contents": contents}).encode()
-            url = (
-                f"https://generativelanguage.googleapis.com/v1beta/models/"
-                f"gemini-1.5-flash:generateContent?key={gemini_key}"
-            )
+            parts_ = [{"text": m["content"]} for m in messages_list if m["role"] != "system"]
+            data = _json.dumps({"contents": [{"parts": parts_}]}).encode()
+            url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+                   f"gemini-pro:generateContent?key={gemini_key}")
             req = urllib.request.Request(url, data=data,
                 headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=30) as r:
@@ -3292,7 +3282,7 @@ def call_ai(messages_list):
             import urllib.request
             import json as _json
             data = _json.dumps({
-                "model": "llama-3.3-70b-versatile",
+                "model": "llama-3.3-70b-versatile",  # ← БУЛ ЖЕРДИ ӨЗГЕРТТИК
                 "messages": messages_list,
                 "max_tokens": 1500
             }).encode()
