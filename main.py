@@ -3341,39 +3341,178 @@ def ai_clear_history(call):
 @bot.message_handler(func=lambda m: get_user_state(m.from_user.id) == "ai_chat")
 @check_access
 def handle_ai_message(message):
-    if not message.text: return
-    if message.text == "⬅️ Артқа":
-        clear_user_state(message.from_user.id)
-        bot.send_message(message.chat.id, "🏠 Бас меню",
-            reply_markup=main_menu(message.from_user.id))
+# ============================================================
+# 🤖 AI КӨМЕКШІ
+# ============================================================
+
+_ai_chat_history = {}
+_ai_chat_history_lock = Lock()
+_ai_last_active = {}
+
+AI_SYSTEM_PROMPT = (
+    "Сен S6-DI-23 группасының ақыллы көмекшисисең. "
+    "Сорауларға қысқа, толық және дослық түрде жууап бер. "
+    "Пайдаланушы қай тилде жазса, сол тилде жууап бер (қарақалпақша, қазақша, орысша, английский — бәри болады). "
+    "Егер сорау оқыуға, сабаққа, университетке байланысты болса — итибарлы жууап бер."
+)
+
+def _ai_try_groq(messages: list) -> str:
+    import requests
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY жоқ")
+    resp = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
+        json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 1000, "temperature": 0.7},
+        timeout=30
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
+
+def _ai_try_openai(messages: list) -> str:
+    import requests
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY жоқ")
+    resp = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
+        json={"model": "gpt-4o-mini", "messages": messages, "max_tokens": 1000, "temperature": 0.7},
+        timeout=30
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
+
+def _ai_try_gemini(user_message: str, history: list) -> str:
+    import requests
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        raise ValueError("GOOGLE_API_KEY жоқ")
+    contents = []
+    for msg in history:
+        role = "user" if msg["role"] == "user" else "model"
+        contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+    contents.append({"role": "user", "parts": [{"text": user_message}]})
+    resp = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+        headers={"Content-Type": "application/json"},
+        json={
+            "system_instruction": {"parts": [{"text": AI_SYSTEM_PROMPT}]},
+            "contents": contents,
+            "generationConfig": {"maxOutputTokens": 1000, "temperature": 0.7}
+        },
+        timeout=30
+    )
+    resp.raise_for_status()
+    return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+def ai_ask_groq(user_id: int, user_message: str) -> str:
+    with _ai_chat_history_lock:
+        if user_id not in _ai_chat_history:
+            _ai_chat_history[user_id] = []
+        history = list(_ai_chat_history[user_id][-10:])
+        _ai_last_active[user_id] = time.time()
+
+    messages = [{"role": "system", "content": AI_SYSTEM_PROMPT}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": user_message})
+
+    answer = None
+    for fn, args in [
+        (_ai_try_groq, (messages,)),
+        (_ai_try_openai, (messages,)),
+        (_ai_try_gemini, (user_message, history)),
+    ]:
+        try:
+            answer = fn(*args)
+            break
+        except Exception as e:
+            logger.error(f"❌ {fn.__name__} қате: {type(e).__name__}: {e}")
+
+    if not answer:
+        return (
+            "❌ <b>AI уақытша жұмыс иcтемейди.</b>\n\n"
+            "Барлық 3 сервис (Groq, OpenAI, Gemini) жууап бермеди.\n"
+            "Кейинирек қайталаңыз ямаса admin-ге хабарласыңыз."
+        )
+
+    with _ai_chat_history_lock:
+        if user_id not in _ai_chat_history:
+            _ai_chat_history[user_id] = []
+        _ai_chat_history[user_id].append({"role": "user", "content": user_message})
+        _ai_chat_history[user_id].append({"role": "assistant", "content": answer})
+        if len(_ai_chat_history[user_id]) > 20:
+            _ai_chat_history[user_id] = _ai_chat_history[user_id][-20:]
+
+    return answer
+
+def ai_clear_history(user_id: int):
+    with _ai_chat_history_lock:
+        _ai_chat_history.pop(user_id, None)
+        _ai_last_active.pop(user_id, None)
+
+def cleanup_ai_history():
+    now = time.time()
+    with _ai_chat_history_lock:
+        inactive = [uid for uid, t in _ai_last_active.items() if now - t > 7200]
+        for uid in inactive:
+            _ai_chat_history.pop(uid, None)
+            _ai_last_active.pop(uid, None)
+    if inactive:
+        logger.info(f"AI history cleanup: {len(inactive)} пайдаланушы тазаланды")
+
+def _md_to_html(text: str) -> str:
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text, flags=re.DOTALL)
+    text = re.sub(r'__(.+?)__', r'<u>\1</u>', text, flags=re.DOTALL)
+    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
+    text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
+    return text
+
+@bot.message_handler(func=lambda m: m.text == "🤖 AI Көмекши")
+def ai_menu(message):
+    user_id = message.from_user.id
+    set_user_state(user_id, "ai_chat")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("🗑 Тарихты тазалау")
+    markup.row("⬅️ Артқа")
+    bot.send_message(message.chat.id,
+        "🤖 <b>AI Көмекши иске қосылды!</b>\n\n"
+        "✏️ Кез-келген сорауыңызды жазыңыз.\n"
+        "🌐 Қай тилде жазсаңыз, сол тилде жууап береди.\n\n"
+        "🗑 Тарихты тазалау — таза сөйлесиу баслау үшын\n"
+        "⚡ <i>Groq → OpenAI → Gemini (автоматлы резерв)</i>",
+        reply_markup=markup
+    )
+
+@bot.message_handler(func=lambda m: m.text == "🗑 Тарихты тазалау", content_types=["text"])
+def ai_clear(message):
+    if get_user_state(message.from_user.id) != "ai_chat":
         return
-    uid = message.from_user.id
-    question = message.text
-    if len(question) > 2000:
-        bot.send_message(message.chat.id, "❌ Сорау дым ұзын (макс 2000 таңба).")
+    ai_clear_history(message.from_user.id)
+    bot.send_message(message.chat.id, "✅ <b>AI тарихы тазаланды!</b>\nТаза сөйлесіу басланды.")
+
+@bot.message_handler(content_types=["text"], func=lambda m: get_user_state(m.from_user.id) == "ai_chat")
+def ai_chat_handler(message):
+    user_id = message.from_user.id
+    text = message.text.strip()
+    if text in ("⬅️ Артқа", "🗑 Тарихты тазалау"):
+        return
+    if not text:
+        bot.send_message(message.chat.id, "✏️ Сорауыңызды жазыңыз.")
         return
     bot.send_chat_action(message.chat.id, "typing")
-    history = get_ai_history(uid)
-    messages_list = ([{"role": "system", "content": AI_SYSTEM_PROMPT}]
-                     + history
-                     + [{"role": "user", "content": question}])
+    wait_msg = bot.send_message(message.chat.id, "⏳ <i>AI ойланып атыр...</i>")
+    answer = ai_ask_groq(user_id, text)
     try:
-        answer = call_ai(messages_list)
-        if not answer:
-            bot.send_message(message.chat.id,
-                "❌ AI сервиси жууап бермеди. Кейинирек қайталаңыз.")
-            return
-        history.append({"role": "user", "content": question})
-        history.append({"role": "assistant", "content": answer})
-        set_ai_history(uid, history)
-        count = len(history) // 2
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton(
-            f"🗑 Тарихты тазалау ({count})", callback_data="ai_clear"))
-        bot.send_message(message.chat.id, answer, reply_markup=markup)
-    except Exception as e:
-        logger.error(f"AI handler қате: {e}", exc_info=True)
-        bot.send_message(message.chat.id, "❌ Қате орын алды. Кейинирек қайталаңыз.")
+        bot.delete_message(message.chat.id, wait_msg.message_id)
+    except Exception:
+        pass
+    answer_html = _md_to_html(answer)
+    try:
+        bot.send_message(message.chat.id, f"🤖 {answer_html}", parse_mode="HTML")
+    except Exception:
+        bot.send_message(message.chat.id, f"🤖 {answer}")
 
 # ── SCHEDULER ─────────────────────────────────────────────────
 _sent_birthdays = set()
