@@ -229,9 +229,11 @@ def check_access_cb(func):
             return
         if not is_admin(uid) and not is_authorized(uid):
             bot.answer_callback_query(call.id, "⛔ Рұхсат жоқ!")
-            return
-        return func(call)
-    return wrapper
+            return 
+               if not is_admin(uid):
+                  _update_last_active(uid)
+            return func(call)
+            return wrapper
 
 # FIX 2: next_step handler-лар үшін access check хелпері
 def admin_only_step(func):
@@ -391,7 +393,7 @@ def get_online_status(la):
     try:
         last = la if isinstance(la, datetime) else datetime.strptime(str(la)[:19], "%Y-%m-%d %H:%M:%S")
         d = max((now_uz() - last).total_seconds(), 0)
-        if d < 300: return "🟢 Онлайн"
+        if d < 900: return "🟢 Онлайн"
         elif d < 3600: return f"🟡 {int(d//60)} мин бұрын"
         elif d < 86400: return f"🔴 {int(d//3600)} сағ бұрын"
         else: return f"🔴 {int(d//86400)} күн бұрын"
@@ -401,7 +403,7 @@ def get_online_status(la):
 def _is_online(la, now_t):
     try:
         last = la if isinstance(la, datetime) else datetime.strptime(str(la)[:19], "%Y-%m-%d %H:%M:%S")
-        return (now_t - last).total_seconds() < 300
+        return (now_t - last).total_seconds() < 900
     except:
         return False
 
