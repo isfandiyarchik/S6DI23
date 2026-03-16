@@ -3374,6 +3374,15 @@ def auto_scheduler():
             now = now_uz()
             h, m_ = now.hour, now.minute
 
+# Supabase ояту — әр 30 сек сайын
+            try:
+                conn, cursor = get_db()
+                cursor.execute("SELECT 1")
+                cursor.close()
+                release_db(conn)
+            except Exception as e:
+                logger.warning(f"DB ping қате: {e}")
+
             # Таңғы хабарлама 07:30
             if h == 7 and m_ == 30:
                 today = DAYS_EN_TO_RU.get(now.strftime("%A"), "")
