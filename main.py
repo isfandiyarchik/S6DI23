@@ -229,11 +229,11 @@ def check_access_cb(func):
             return
         if not is_admin(uid) and not is_authorized(uid):
             bot.answer_callback_query(call.id, "⛔ Рұхсат жоқ!")
-            return 
-               if not is_admin(uid):
-                  _update_last_active(uid)
-            return func(call)
-            return wrapper
+            return                        
+    if not is_admin(uid):            
+        _update_last_active(uid)      
+    return func(call)                 
+    return wrapper 
 
 # FIX 2: next_step handler-лар үшін access check хелпері
 def admin_only_step(func):
