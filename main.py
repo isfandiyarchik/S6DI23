@@ -101,6 +101,8 @@ def init_db():
         # FIX 1: AI тарихын DB-де сақтау (RAM емес)
         """CREATE TABLE IF NOT EXISTS ai_history (
             user_id BIGINT PRIMARY KEY, history TEXT, updated_at TIMESTAMP DEFAULT NOW())""",
+        """CREATE TABLE IF NOT EXISTS sent_reminders (
+            key TEXT PRIMARY KEY, sent_at TIMESTAMP DEFAULT NOW())""",
     ]
     migrations = [
         "ALTER TABLE students ADD COLUMN IF NOT EXISTS full_name TEXT",
@@ -3365,109 +3367,174 @@ def ai_chat_handler(message):
     except Exception:
         bot.send_message(message.chat.id, f"🤖 {answer}")
 
-# ── SCHEDULER ─────────────────────────────────────────────────
-_sent_birthdays = set()
+# ── SCHEDULER ────────────────────────────────────────────────–
+
+def _reminder_already_sent(key: str) -> bool:
+    conn, cursor = get_db()
+    try:
+        cursor.execute("SELECT key FROM sent_reminders WHERE key=%s", (key,))
+        return cursor.fetchone() is not None
+    except Exception:
+        return False
+    finally:
+        cursor.close()
+        release_db(conn)
+
+
+def _mark_reminder_sent(key: str):
+    conn, cursor = get_db()
+    try:
+        cursor.execute(
+            "INSERT INTO sent_reminders(key, sent_at) VALUES(%s,%s) ON CONFLICT(key) DO NOTHING",
+            (key, now_uz()))
+        conn.commit()
+    except Exception as e:
+        logger.warning(f"_mark_reminder_sent({key}): {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        cursor.close()
+        release_db(conn)
+
 
 def auto_scheduler():
+    _last_ping = 0
+
     while True:
         try:
             now = now_uz()
             h, m_ = now.hour, now.minute
 
-# Supabase ояту — әр 30 сек сайын
-            try:
-                conn, cursor = get_db()
-                cursor.execute("SELECT 1")
-                cursor.close()
-                release_db(conn)
-            except Exception as e:
-                logger.warning(f"DB ping қате: {e}")
-
-            # Таңғы хабарлама 07:30
-            if h == 7 and m_ == 30:
-                today = DAYS_EN_TO_RU.get(now.strftime("%A"), "")
-                conn, cursor = get_db()
+            # ── DB ping: әр 4 минут сайын ──
+            ping_now = time.time()
+            if ping_now - _last_ping >= 240:
                 try:
-                    cursor.execute(
-                        "SELECT subject,time FROM schedule WHERE day=%s ORDER BY time", (today,))
-                    lessons = cursor.fetchall()
-                finally:
+                    conn, cursor = get_db()
+                    cursor.execute("SELECT 1")
                     cursor.close()
                     release_db(conn)
-                msg_ = f"☀️ <b>Қайырлы таң!</b>\n📅 Бүгин: <b>{today}</b>\n\n"
-                if lessons:
-                    msg_ += "📖 <b>Бүгинги сабақлар:</b>\n"
-                    for i, r in enumerate(lessons, 1):
-                        msg_ += f"  {i}-пара 🕐 {r[1]} — {r[0]}\n"
-                else:
-                    msg_ += "📭 Бүгин сабақ жоқ. Демалыңыз! 🎉"
-                send_to_students(text=msg_)
-                time.sleep(65)
+                    _last_ping = ping_now
+                except Exception as e:
+                    logger.warning(f"DB ping қате: {e}")
 
-            # Тууылған күн тексеру 09:00
+            # ── Таңғы хабарлама 07:30 ──
+            if h == 7 and m_ == 30:
+                key = f"morning_{now.strftime('%Y-%m-%d')}"
+                if not _reminder_already_sent(key):
+                    try:
+                        today = DAYS_EN_TO_RU.get(now.strftime("%A"), "")
+                        conn, cursor = get_db()
+                        try:
+                            cursor.execute(
+                                "SELECT subject,time FROM schedule WHERE day=%s ORDER BY time",
+                                (today,))
+                            lessons = cursor.fetchall()
+                        finally:
+                            cursor.close()
+                            release_db(conn)
+                        msg_ = f"☀️ <b>Қайырлы таң!</b>\n📅 Бүгин: <b>{today}</b>\n\n"
+                        if lessons:
+                            msg_ += "📖 <b>Бүгинги сабақлар:</b>\n"
+                            for i, r in enumerate(lessons, 1):
+                                msg_ += f"  {i}-пара 🕐 {r[1]} — {r[0]}\n"
+                        else:
+                            msg_ += "📭 Бүгин сабақ жоқ. Демалыңыз! 🎉"
+                        send_to_students(text=msg_)
+                        _mark_reminder_sent(key)
+                        logger.info(f"✅ Таңғы хабарлама жіберілді: {key}")
+                    except Exception as e:
+                        logger.error(f"Таңғы хабарлама қате: {e}", exc_info=True)
+
+            # ── Тууылған күн тексеру 09:00 ──
             elif h == 9 and m_ == 0:
                 today_str = now.strftime("%m-%d")
-                key = now.strftime('%Y-%m-%d')
-                if key not in _sent_birthdays:
-                    conn, cursor = get_db()
-                    try:
-                        cursor.execute(
-                            "SELECT id,full_name,birth_date FROM students "
-                            "WHERE birth_date IS NOT NULL AND birth_date!=''")
-                        students_ = cursor.fetchall()
-                    finally:
-                        cursor.close()
-                        release_db(conn)
-                    for sid, sname, bd in students_:
-                        try:
-                            if not bd: continue
-                            bd_str = str(bd).strip()[:10]
-                            if not bd_str: continue
-                            bd_dt = datetime.strptime(bd_str, "%Y-%m-%d")
-                            if bd_dt.strftime("%m-%d") == today_str:
-                                age = now.year - bd_dt.year
-                                send_to_students(
-                                    text=(f"🎂 <b>Бүгин {sname}-ның тууылған күни!</b>\n"
-                                          f"🎉 Оған {age} жас толды!\n\n"
-                                          "Барлық группа атынан құтлықлаймыз! 🎊"))
-                                try:
-                                    bot.send_message(sid,
-                                        f"🎂 <b>Тууылған күниңиз құтлы болсын!</b>\n"
-                                        f"🎉 Сизге {age} жас толды!\n\n"
-                                        "С6-DI-23 группасы атынан ең жыллы тилеклеримизди жоллаймыз! 🎊")
-                                except Exception:
-                                    pass
-                        except Exception as e:
-                            logger.warning(f"Birthday check ({sname}): {e}")
-                    _sent_birthdays.add(key)
-                    if len(_sent_birthdays) > 30:
-                        oldest = sorted(_sent_birthdays)[:-30]
-                        for k in oldest:
-                            _sent_birthdays.discard(k)
-                    time.sleep(65)
-
-            # Ескі сессиялар мен rate-limit тазалау 03:00
-            elif h == 3 and m_ == 0:
-                cleanup_old_sessions()
-                clean_rate_limit()
-                # FIX 5: Ескі AI тарихын автоматты тазалау (30 күннен асқан)
+                conn2, cur2 = get_db()
                 try:
-                    c2, cur2 = get_db()
+                    cur2.execute(
+                        "SELECT id,full_name,birth_date FROM students "
+                        "WHERE birth_date IS NOT NULL AND birth_date!=''")
+                    students_ = cur2.fetchall()
+                finally:
+                    cur2.close()
+                    release_db(conn2)
+                for sid, sname, bd in students_:
                     try:
-                        cur2.execute(
-                            "DELETE FROM ai_history WHERE updated_at < %s",
-                            (now_uz() - timedelta(days=30),))
-                        c2.commit()
-                    finally:
-                        cur2.close()
-                        release_db(c2)
-                except Exception as e:
-                    logger.warning(f"AI history cleanup: {e}")
-                time.sleep(65)
+                        if not bd:
+                            continue
+                        bd_str = str(bd).strip()[:10]
+                        if not bd_str:
+                            continue
+                        bd_dt = datetime.strptime(bd_str, "%Y-%m-%d")
+                        if bd_dt.strftime("%m-%d") != today_str:
+                            continue
+                        bday_key = f"birthday_{sid}_{now.strftime('%Y-%m-%d')}"
+                        if _reminder_already_sent(bday_key):
+                            continue
+                        age = now.year - bd_dt.year
+                        send_to_students(
+                            text=(
+                                f"🎂 <b>Бүгин {sname}-ның тууылған күні!</b>\n"
+                                f"🎉 Оған {age} жас толды!\n\n"
+                                "Барлық группа атынан құтлықлаймыз! 🎊"))
+                        try:
+                            bot.send_message(
+                                sid,
+                                f"🎂 <b>Тууылған күніңіз құтлы болсын!</b>\n"
+                                f"🎉 Сізге {age} жас толды!\n\n"
+                                "С6-DI-23 группасы атынан ең жыллы тілектерімізді жоллаймыз! 🎊")
+                        except Exception:
+                            pass
+                        _mark_reminder_sent(bday_key)
+                        logger.info(f"🎂 Тууылған күн хабарламасы: {sname}")
+                    except Exception as e:
+                        logger.warning(f"Birthday check ({sname}): {e}")
+
+            # ── Тазалау 03:00 ──
+            elif h == 3 and m_ == 0:
+                clean_key = f"cleanup_{now.strftime('%Y-%m-%d')}"
+                if not _reminder_already_sent(clean_key):
+                    try:
+                        cleanup_old_sessions()
+                        clean_rate_limit()
+                        cleanup_ai_history()
+                        try:
+                            c3, cur3 = get_db()
+                            try:
+                                cur3.execute(
+                                    "DELETE FROM ai_history WHERE updated_at < %s",
+                                    (now_uz() - timedelta(days=30),))
+                                c3.commit()
+                            finally:
+                                cur3.close()
+                                release_db(c3)
+                        except Exception as e:
+                            logger.warning(f"AI history DB cleanup: {e}")
+                        try:
+                            c4, cur4 = get_db()
+                            try:
+                                cur4.execute(
+                                    "DELETE FROM sent_reminders WHERE sent_at < %s",
+                                    (now_uz() - timedelta(days=7),))
+                                deleted = cur4.rowcount
+                                c4.commit()
+                                if deleted:
+                                    logger.info(f"sent_reminders: {deleted} ескі жазба өшірілді")
+                            finally:
+                                cur4.close()
+                                release_db(c4)
+                        except Exception as e:
+                            logger.warning(f"sent_reminders cleanup: {e}")
+                        _mark_reminder_sent(clean_key)
+                        logger.info("✅ Түнгі тазалау аяқталды")
+                    except Exception as e:
+                        logger.error(f"Тазалау қате: {e}", exc_info=True)
 
         except Exception as e:
             logger.error(f"auto_scheduler қате: {e}", exc_info=True)
-        time.sleep(30)
+
+        time.sleep(45)
 
 # ── MAIN ──────────────────────────────────────────────────────
 if __name__ == "__main__":
