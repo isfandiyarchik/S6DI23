@@ -1,5 +1,5 @@
-pyTelegramBotAPI
-flask
-psycopg2-binary
-openpyxl
-requests
+pyTelegramBotAPI>=4.14.0
+Flask>=2.3.0
+psycopg2-binary>=2.9.0
+openpyxl>=3.1.0
+requests>=2.31.0
