@@ -3534,7 +3534,7 @@ def auto_scheduler():
         except Exception as e:
             logger.error(f"auto_scheduler қате: {e}", exc_info=True)
 
-        time.sleep(45)
+        time.sleep(15)
 
 # ── MAIN ──────────────────────────────────────────────────────
 if __name__ == "__main__":
