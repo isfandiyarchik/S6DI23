@@ -253,7 +253,7 @@ def check_access(func):
             except Exception: pass
             return
         if is_rate_limited(uid):
-            try: bot.send_message(uid, "⏳ Дым тез! Бираздан кейін қайталаңыз.")
+            try: bot.send_message(uid, "⏳ Дым тез! Бираздан кейин қайталаңыз.")
             except Exception: pass
             return
         if not is_admin(uid):
@@ -690,12 +690,12 @@ def _excel_download_impl(message):
         wb.save(path)
         send_excel_file(message.chat.id, path, caption=(
             f"📥 <b>Студентлер дизими</b> — {len(rows)} студент\n\n"
-            "✏️ <b>Толтыру нускаулығы:</b>\n"
+            "✏️ <b>Толтырыу қателиги:</b>\n"
             "   B — ФИО\n   C — Тууылған күни (2000-01-15)\n"
             "   D — Телефон\n   E — HEMIS ID\n\n"
-            "⚠️ <b>G бағанасын (TelegramID) өзгертпеңиз!</b>\n"
-            "📤 Толтырып болғаннан кейін <b>Excel импорт</b> арқалы жүклеңиз."))
-        bot.send_message(message.chat.id, "✅ Жиберилді!", reply_markup=excel_submenu())
+            "⚠️ <b>G қатарын (TelegramID) өзгертпеңиз!</b>\n"
+            "📤 Толтырып болғаннан кейин <b>Excel импорт</b> арқалы жүклеңиз."))
+        bot.send_message(message.chat.id, "✅ Жиберилди!", reply_markup=excel_submenu())
     except Exception as e:
         logger.error(f"excel_download: {e}", exc_info=True)
         bot.send_message(message.chat.id, f"❌ Excel жасауда қате: {e}", reply_markup=excel_submenu())
@@ -725,14 +725,14 @@ def _excel_import_impl(message):
         with open(path, "wb") as f:
             f.write(bot.download_file(fi.file_path))
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Файлды жүклеу мүмкін болмады: {e}", reply_markup=excel_submenu())
+        bot.send_message(message.chat.id, f"❌ Файлды жүклеу мүмкин болмады: {e}", reply_markup=excel_submenu())
         return
 
     try:
         wb = openpyxl.load_workbook(path, data_only=True)
         ws = wb.active
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Excel файлды оқыу мүмкін болмады: {e}", reply_markup=excel_submenu())
+        bot.send_message(message.chat.id, f"❌ Excel файлды оқыу мүмкин болмады: {e}", reply_markup=excel_submenu())
         try: os.remove(path)
         except: pass
         return
@@ -847,7 +847,7 @@ def _excel_import_impl(message):
         f"✅ <b>Импорт жуумақланды!</b>\n\n"
         f"🔄 Жаңаланды: <b>{updated}</b>\n"
         f"➕ Қосылды:   <b>{added}</b>\n"
-        f"⏭ Өткизилді: <b>{skipped}</b>\n"
+        f"⏭ Өткизилди: <b>{skipped}</b>\n"
         f"❌ Қателер:   <b>{errors}</b>",
         reply_markup=excel_submenu())
 
