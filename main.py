@@ -1594,7 +1594,7 @@ def show_all_contracts(message):
 @bot.message_handler(func=lambda m: m.text == "📰 Жаңалықлар")
 @check_access
 def show_news_menu(message):
-    bot.send_message(message.chat.id, "📰 <b>Жаңалықлар бөлімі</b>", reply_markup=news_menu())
+    bot.send_message(message.chat.id, "📰 <b>Жаңалықлар бөлими</b>", reply_markup=news_menu())
 
 @bot.message_handler(func=lambda m: m.text == "✍️ Жазыңыз")
 @check_access
@@ -1626,9 +1626,9 @@ def handle_user_news(message):
                 (message.text, uid, username))
             conn.commit()
         send_to_students(
-            text=f"📰 <b>Жаңа хабарлама!</b>\n\n👤 <b>@{username}</b>:\n\n{message.text}",
+            text=f"📰 <b>Таза хабарлама!</b>\n\n👤 <b>@{username}</b>:\n\n{message.text}",
             exclude_id=uid)
-        bot.send_message(message.chat.id, "✅ Жіберілді!", reply_markup=news_menu())
+        bot.send_message(message.chat.id, "✅ Жиберилди!", reply_markup=news_menu())
     except Exception as e:
         logger.error(f"handle_user_news: {e}", exc_info=True)
         bot.send_message(message.chat.id, f"❌ Қате: {e}", reply_markup=news_menu())
@@ -1666,7 +1666,7 @@ def show_materials_menu(message):
 def upload_material_start(message):
     set_user_state(message.from_user.id, "materials")
     bot.send_message(message.chat.id,
-        "📥 <b>Файл ямаса фото жибериңиз:</b>\nДайын болғанда <b>⬅️ Артқа</b> басыңыз.",
+        "📥 <b>Файл ямаса фото жибериңиз:</b>\nТайын болғанда <b>⬅️ Артқа</b> басыңыз.",
         reply_markup=back_menu())
 
 @bot.message_handler(content_types=["document"],
@@ -1685,7 +1685,7 @@ def handle_upload_document(message):
                 (file_id, "document", uid, username))
             conn.commit()
         send_to_students(file_id=file_id, file_type="document",
-            text=f"📚 <b>Жаңа материал!</b>\n👤 @{username}\n📎 {file_name}", exclude_id=uid)
+            text=f"📚 <b>Таза материал!</b>\n👤 @{username}\n📎 {file_name}", exclude_id=uid)
         send_saved_once(message.chat.id, uid)
     except Exception as e:
         logger.error(f"handle_upload_document: {e}", exc_info=True)
@@ -1706,7 +1706,7 @@ def handle_upload_photo_mat(message):
                 (file_id, "photo", uid, username))
             conn.commit()
         send_to_students(file_id=file_id, file_type="photo",
-            text=f"📚 <b>Жаңа материал!</b>\n👤 @{username}", exclude_id=uid)
+            text=f"📚 <b>Таза материал!</b>\n👤 @{username}", exclude_id=uid)
         send_saved_once(message.chat.id, uid)
     except Exception as e:
         logger.error(f"handle_upload_photo_mat: {e}", exc_info=True)
@@ -1727,29 +1727,29 @@ def show_materials_archive(message):
     if not rows:
         bot.send_message(message.chat.id, "📭 Архив бос.", reply_markup=materials_menu())
         return
-    bot.send_message(message.chat.id, f"🗂 <b>Барлығы: {len(rows)}</b>\n\nЖүкленуде...")
+    bot.send_message(message.chat.id, f"🗂 <b>Барлығы: {len(rows)}</b>\n\nЖүклениуде...")
     for r in rows:
-        uname = f"@{r[3]}" if r[3] else "Белгісіз"
+        uname = f"@{r[3]}" if r[3] else "Белгисиз"
         cap = f"👤 {uname}\n🕐 {r[2]}"
         try:
             if r[1] == "document": bot.send_document(message.chat.id, r[0], caption=cap)
             elif r[1] == "photo": bot.send_photo(message.chat.id, r[0], caption=cap)
         except:
             continue
-    bot.send_message(message.chat.id, "✅ Дайын.", reply_markup=materials_menu())
+    bot.send_message(message.chat.id, "✅ Тайын.", reply_markup=materials_menu())
 
 # ── ГАЛЕРЕЯ ───────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: m.text == "📷 Фото/Видео")
 @check_access
 def show_gallery_menu(message):
-    bot.send_message(message.chat.id, "📷 <b>Фото/Видео бөлімі</b>", reply_markup=gallery_menu())
+    bot.send_message(message.chat.id, "📷 <b>Фото/Видео бөлими</b>", reply_markup=gallery_menu())
 
 @bot.message_handler(func=lambda m: m.text == GALLERY_UPLOAD_BTN)
 @check_access
 def gallery_upload_start(message):
     set_user_state(message.from_user.id, "gallery")
     bot.send_message(message.chat.id,
-        "📤 <b>Фото ямаса видео жибериңиз:</b>\nДайын болғанда <b>⬅️ Артқа</b> басыңыз.",
+        "📤 <b>Фото ямаса видео жибериңиз:</b>\nТайын болғанда <b>⬅️ Артқа</b> басыңыз.",
         reply_markup=back_menu())
 
 @bot.message_handler(content_types=["photo"],
@@ -1767,7 +1767,7 @@ def handle_gallery_photo(message):
                 (file_id, "photo", uid, username))
             conn.commit()
         send_to_students(file_id=file_id, file_type="photo",
-            text=f"🎞 <b>S6-DI естелігі!</b>\n👤 @{username}", exclude_id=uid)
+            text=f"🎞 <b>S6-DI естелиги!</b>\n👤 @{username}", exclude_id=uid)
         send_saved_once(message.chat.id, uid)
     except Exception as e:
         logger.error(f"handle_gallery_photo: {e}", exc_info=True)
@@ -1788,7 +1788,7 @@ def handle_gallery_video(message):
                 (file_id, "video", uid, username))
             conn.commit()
         send_to_students(file_id=file_id, file_type="video",
-            text=f"🎞 <b>S6-DI естелігі!</b>\n👤 @{username}", exclude_id=uid)
+            text=f"🎞 <b>S6-DI естелиги!</b>\n👤 @{username}", exclude_id=uid)
         send_saved_once(message.chat.id, uid)
     except Exception as e:
         logger.error(f"handle_gallery_video: {e}", exc_info=True)
@@ -1818,13 +1818,13 @@ def show_gallery_view(message):
             elif r[1] == "video": bot.send_video(message.chat.id, r[0], caption=cap)
         except:
             continue
-    bot.send_message(message.chat.id, "✅ Дайын.", reply_markup=gallery_menu())
+    bot.send_message(message.chat.id, "✅ Тайын.", reply_markup=gallery_menu())
 
 # ── САБАҚ КЕСТЕСІ ─────────────────────────────────────────────
 @bot.message_handler(func=lambda m: m.text == "📅 Сабақ кестеси")
 @check_access
 def show_schedule_menu(message):
-    bot.send_message(message.chat.id, "📅 <b>Сабақ кестесі</b>\nКүнді таңлаңыз:", reply_markup=schedule_menu())
+    bot.send_message(message.chat.id, "📅 <b>Сабақ кестесі</b>\nКүнди таңлаңыз:", reply_markup=schedule_menu())
 
 @bot.message_handler(func=lambda m: m.text in DAYS_RU)
 @check_access
@@ -1834,7 +1834,7 @@ def show_day_schedule(message):
         cursor.execute("SELECT subject,time FROM schedule WHERE day=%s ORDER BY time", (day,))
         rows = cursor.fetchall()
     today_ru = DAYS_EN_TO_RU.get(now_uz().strftime("%A"), "")
-    today_mark = " 📌 <i>(бүгін)</i>" if day == today_ru else ""
+    today_mark = " 📌 <i>(бүгин)</i>" if day == today_ru else ""
     if not rows:
         bot.send_message(message.chat.id,
             f"📭 <b>{day}{today_mark}</b>\n\nСабақ жоқ.", reply_markup=schedule_menu())
@@ -1856,7 +1856,7 @@ def handle_suggestion(message):
     if not user_step_check(message):
         return
     if not message.text:
-        msg = bot.send_message(message.chat.id, "✍️ Текст жибериңіз:", reply_markup=back_menu())
+        msg = bot.send_message(message.chat.id, "✍️ Текст жибериңиз:", reply_markup=back_menu())
         bot.register_next_step_handler(msg, handle_suggestion)
         return
     if message.text == "⬅️ Артқа":
@@ -1872,14 +1872,14 @@ def handle_suggestion(message):
             cursor.execute("INSERT INTO suggestions(content,user_id) VALUES(%s,%s)",
                 (message.text, message.from_user.id))
             conn.commit()
-        bot.send_message(message.chat.id, "✅ Жіберілді! Рахмет!", reply_markup=main_menu(message.from_user.id))
+        bot.send_message(message.chat.id, "✅ Жиберилди! Рахмет!", reply_markup=main_menu(message.from_user.id))
         for aid in ADMIN_IDS:
             try:
                 fn = message.from_user.first_name or ""
                 ln = message.from_user.last_name or ""
                 un = f"@{message.from_user.username}" if message.from_user.username else "username жоқ"
                 bot.send_message(aid,
-                    f"💡 <b>Жаңа ұсыныс/шағым:</b>\n\n{message.text}\n\n"
+                    f"💡 <b>Таза ұсыныс/шағым:</b>\n\n{message.text}\n\n"
                     f"👤 {fn} {ln}\n🔗 {un}\n🆔 <code>{message.from_user.id}</code>")
             except:
                 pass
@@ -1892,7 +1892,7 @@ def handle_suggestion(message):
 @check_access
 def admin_panel(message):
     if not is_admin(message.from_user.id):
-        bot.send_message(message.chat.id, "🚫 Сіз админ емессіз!")
+        bot.send_message(message.chat.id, "🚫 Сиз админ емессиз!")
         return
     bot.send_message(message.chat.id, "👮 <b>Админ панель</b>", reply_markup=admin_menu())
 
@@ -1913,10 +1913,10 @@ def student_add_or_edit_start(message):
     with db_cursor() as (_, cursor):
         cursor.execute("SELECT id,full_name,username FROM students ORDER BY full_name")
         rows = cursor.fetchall()
-    header = ("➕ <b>Студент қосыу / Өзгертіу:</b>\n\n🆕 <b>Жаңа қосыу:</b>\n"
-              "<code>жаңа;ФИО;Туылған күні;Тел;HEMIS;TelegramID</code>\n"
-              "📌 Мысал: <code>жаңа;Иванов Иван;2000-01-01;+998901234567;S12345678;123456789</code>\n\n"
-              "✏️ <b>Өзгертіу:</b> студент ID-ін жазыңыз\n" + "─" * 30 + "\n")
+    header = ("➕ <b>Студент қосыу / Өзгертіу:</b>\n\n🆕 <b>Таза қосыу:</b>\n"
+              "<code>жаңа;ФИО;Туылған күни;Тел;HEMIS;TelegramID</code>\n"
+              "📌 Мысал: <code>таза;Иванов Иван;2000-01-01;+998901234567;S12345678;123456789</code>\n\n"
+              "✏️ <b>Өзгертиу:</b> студент ID-ін жазыңыз\n" + "─" * 30 + "\n")
     if not rows:
         msg = bot.send_message(message.chat.id, header + "📭 Студентлер жоқ.", reply_markup=back_menu())
         bot.register_next_step_handler(msg, student_add_or_edit)
@@ -1929,7 +1929,7 @@ def student_add_or_edit_start(message):
             chunks.append(cur)
             cur = ""
         cur += line
-    cur += "─" * 30 + "\n⬇️ <b>ID жазыңыз ямаса жаңа студент форматын жибериңіз:</b>"
+    cur += "─" * 30 + "\n⬇️ <b>ID жазыңыз ямаса таза студент форматын жибериңиз:</b>"
     chunks.append(cur)
     for chunk in chunks[:-1]:
         bot.send_message(message.chat.id, chunk)
@@ -1960,12 +1960,12 @@ def student_add_or_edit(message):
     if not message.text or message.text == "⬅️ Артқа":
         bot.send_message(message.chat.id, "👤 Студент басқарыу", reply_markup=student_submenu())
         return
-    # FIX: "таза" -> "жаңа" деп өзгертілді (немесе екеуін де қабылдайды)
-    if message.text.strip().lower().startswith(("жаңа;", "таза;")):
+    # FIX: "таза" -> "таза" деп өзгертилди (ямаса екеуин де қабыллайды)
+    if message.text.strip().lower().startswith(("таза;", "таза;")):
         parts = [p.strip() for p in message.text.split(";")]
         if len(parts) < 6 or not parts[1] or not parts[5]:
             msg = bot.send_message(message.chat.id,
-                "❌ Формат:\n<code>жаңа;ФИО;Туылған күні;Тел;HEMIS;TelegramID</code>",
+                "❌ Формат:\n<code>жаңа;ФИО;Тууылған күни;Тел;HEMIS;TelegramID</code>",
                 reply_markup=back_menu())
             bot.register_next_step_handler(msg, student_add_or_edit)
             return
@@ -1985,7 +1985,7 @@ def student_add_or_edit(message):
                 ex = cursor.fetchone()
                 if ex:
                     bot.send_message(message.chat.id,
-                        f"⚠️ Бұл ID бұрыннан бар!\n👤 {ex[1] or '—'}\n\nӨзгертіу үшын ID жазыңыз: <code>{tg_id}</code>",
+                        f"⚠️ Бұл ID бұрыннан бар!\n👤 {ex[1] or '—'}\n\nӨзгертиу үшын ID жазыңыз: <code>{tg_id}</code>",
                         reply_markup=back_menu())
                     bot.register_next_step_handler(message, student_add_or_edit)
                     return
@@ -1996,7 +1996,7 @@ def student_add_or_edit(message):
                 conn.commit()
             bot.send_message(message.chat.id,
                 f"✅ <b>{fn}</b> қосылды!\n🆔 <code>{tg_id}</code>\n🎓 HEMIS: {hm}\n\n"
-                "📌 Студент ботқа /start берсін.",
+                "📌 Студент ботқа /start берсин.",
                 reply_markup=student_submenu())
         except Exception as e:
             logger.error(f"student_add_or_edit insert: {e}", exc_info=True)
@@ -2006,7 +2006,7 @@ def student_add_or_edit(message):
         sid = int(message.text.strip())
     except ValueError:
         msg = bot.send_message(message.chat.id,
-            "❌ ID ямаса <code>жаңа;ФИО;Күн;Тел;HEMIS;TelegramID</code>",
+            "❌ ID ямаса <code>таза;ФИО;Күн;Тел;HEMIS;TelegramID</code>",
             reply_markup=back_menu())
         bot.register_next_step_handler(msg, student_add_or_edit)
         return
@@ -2038,7 +2038,7 @@ def student_edit_save(message, sid, old_fn, old_bd, old_ph, old_hm):
         return
     try:
         parts = [p.strip() for p in message.text.split(";")]
-        if len(parts) != 4: raise ValueError("4 бөлік болуы керек")
+        if len(parts) != 4: raise ValueError("4 бөлик болыуы керек")
         nf = parts[0] if parts[0] != "—" else old_fn
         nb = parts[1] if parts[1] != "—" else old_bd
         np_ = parts[2] if parts[2] != "—" else old_ph
@@ -2049,7 +2049,7 @@ def student_edit_save(message, sid, old_fn, old_bd, old_ph, old_hm):
                 (nf, nb, np_, nh, sid))
             conn.commit()
         bot.send_message(message.chat.id,
-            f"✅ <b>{nf}</b> жаңаланды!\n🎓 HEMIS: {nh}", reply_markup=student_submenu())
+            f"✅ <b>{nf}</b> тазаланды!\n🎓 HEMIS: {nh}", reply_markup=student_submenu())
     except Exception as e:
         msg = bot.send_message(message.chat.id,
             f"❌ <code>ФИО;Күн;Тел;HEMIS</code> ({e})", reply_markup=back_menu())
@@ -2065,7 +2065,7 @@ def delete_student(message):
     try:
         sid = int(message.text.strip())
     except ValueError:
-        msg = bot.send_message(message.chat.id, "❌ Тек сандық ID жазыңыз:", reply_markup=back_menu())
+        msg = bot.send_message(message.chat.id, "❌ Тек сан ID жазыңыз:", reply_markup=back_menu())
         bot.register_next_step_handler(msg, delete_student)
         return
     try:
@@ -2077,7 +2077,7 @@ def delete_student(message):
                 return
             cursor.execute("DELETE FROM students WHERE id=%s", (sid,))
             cursor.execute("DELETE FROM attendance WHERE student_id=%s", (sid,))
-            # FIX: Студент өшірілгенде байланысты барлық деректерді тазалау
+            # FIX: Студент өширилгенде байланыслы барлық данныйларды тазалау
             cursor.execute("DELETE FROM contracts WHERE student_id=%s", (sid,))
             cursor.execute("DELETE FROM contract_payments WHERE student_id=%s", (sid,))
             cursor.execute("DELETE FROM blocked_users WHERE user_id=%s", (sid,))
@@ -2086,7 +2086,7 @@ def delete_student(message):
         # State cache-тен де өшіру
         with _state_cache_lock:
             _state_cache.pop(sid, None)
-        bot.send_message(message.chat.id, f"✅ <b>{row[0]}</b> өшірілді.", reply_markup=student_submenu())
+        bot.send_message(message.chat.id, f"✅ <b>{row[0]}</b> өширилди.", reply_markup=student_submenu())
     except Exception as e:
         logger.error(f"delete_student: {e}", exc_info=True)
         bot.send_message(message.chat.id, f"❌ DB қатесі: {e}", reply_markup=student_submenu())
