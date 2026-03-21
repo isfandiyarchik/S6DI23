@@ -2115,7 +2115,7 @@ def excel_import_start(message):
         bot.send_message(message.chat.id, "🚫")
         return
     msg = bot.send_message(message.chat.id,
-        "📤 <b>Excel файлды жибериңіз (.xlsx):</b>", reply_markup=back_menu())
+        "📤 <b>Excel файлды жибериңиз (.xlsx):</b>", reply_markup=back_menu())
     bot.register_next_step_handler(msg, handle_excel_import)
 
 def handle_excel_import(message):
@@ -2206,7 +2206,7 @@ def delete_lesson(message):
             conn.commit()
         if d:
             bot.send_message(message.chat.id,
-                f"✅ Өшірілді: {day} — {time_}", reply_markup=schedule_admin_submenu())
+                f"✅ Өширилди: {day} — {time_}", reply_markup=schedule_admin_submenu())
         else:
             bot.send_message(message.chat.id, "⚠️ Табылмады.", reply_markup=schedule_admin_submenu())
     except ValueError:
@@ -2238,7 +2238,7 @@ def start_attendance(message):
         lessons = cursor.fetchall()
     if not lessons:
         bot.send_message(message.chat.id,
-            f"📭 Бүгін ({today}) сабақ жоқ.", reply_markup=attendance_submenu())
+            f"📭 Бүгин ({today}) сабақ жоқ.", reply_markup=attendance_submenu())
         return
     markup = types.InlineKeyboardMarkup()
     for i, (subject, time_) in enumerate(lessons, 1):
@@ -2246,7 +2246,7 @@ def start_attendance(message):
             text=f"{i}-пара: {subject} ({time_})",
             callback_data=f"att_para_{i}_{subject}"))
     bot.send_message(message.chat.id,
-        f"📊 <b>Барлау — {today}</b>\n\nҚай параны белгілейсіз:", reply_markup=markup)
+        f"📊 <b>Барлау — {today}</b>\n\nҚай параны белгилейсиз:", reply_markup=markup)
 
 @bot.message_handler(func=lambda m: m.text == "📅 Барлау тарихы")
 @check_access
@@ -2275,7 +2275,7 @@ def delete_management(message):
     if not is_admin(message.from_user.id):
         bot.send_message(message.chat.id, "🚫")
         return
-    bot.send_message(message.chat.id, "🗑 <b>Өшириу бөлімі</b>", reply_markup=delete_submenu())
+    bot.send_message(message.chat.id, "🗑 <b>Өшириу бөлими</b>", reply_markup=delete_submenu())
 
 @bot.message_handler(func=lambda m: m.text == "🗑 Материал өшириу")
 @check_access
@@ -2329,37 +2329,37 @@ def delete_news_start(message):
         return
     text = "🗑 <b>Жаңалықларды өшириу:</b>\n\n"
     for r in rows:
-        uname = f"@{r[1]}" if r[1] else "Белгісіз"
+        uname = f"@{r[1]}" if r[1] else "Белгисиз"
         preview = r[3][:40] + "..." if len(r[3]) > 40 else r[3]
         text += f"ID:<code>{r[0]}</code> | {uname}\n📌 {preview}\n{'─'*20}\n"
     text += "\n\nID ямаса <code>all</code> жазыңыз:"
     msg = bot.send_message(message.chat.id, text, reply_markup=back_menu())
     bot.register_next_step_handler(msg, lambda m: delete_news_item(m))
 
-# FIX: SQL injection-дан қорғалған whitelist арқылы өшіру
+# FIX: SQL injection-дан қорғалған whitelist арқалы өшириу
 def _delete_table_item(message, table):
     """
-    SQL injection-дан қорғаған жалпы өшіру функциясы.
-    table параметрі тек ALLOWED_DELETE_TABLES ішінде болуы керек.
+    SQL injection-дан қорғаған улыума өшириу функциясы.
+    table параметри тек ALLOWED_DELETE_TABLES ишинде болыуы керек.
     """
     if not is_admin(message.from_user.id):
         return
-    # CRITICAL FIX: Тек рұхсат етілген кестелерге рұхсат
+    # CRITICAL FIX: Тек рұхсат етилген кестелерге рұхсат
     if table not in ALLOWED_DELETE_TABLES:
         logger.error(f"_delete_table_item: рұхсатсыз кесте аты: {table!r}")
         bot.send_message(message.chat.id, "❌ Қате: рұхсатсыз операция.", reply_markup=delete_submenu())
         return
     if not message.text or message.text == "⬅️ Артқа":
-        bot.send_message(message.chat.id, "🗑 Өшириу бөлімі", reply_markup=delete_submenu())
+        bot.send_message(message.chat.id, "🗑 Өшириу бөлими", reply_markup=delete_submenu())
         return
     try:
         with db_cursor() as (conn, cursor):
             if message.text.strip().lower() == "all":
-                # Параметрленген кесте аты (whitelist арқылы тексерілді)
-                cursor.execute(f"DELETE FROM {table}")  # nosec — whitelist тексерілді
+                # Параметрленген кесте аты (whitelist арқалы тексерилди)
+                cursor.execute(f"DELETE FROM {table}")  # nosec — whitelist тексерилди
                 d = cursor.rowcount
                 conn.commit()
-                bot.send_message(message.chat.id, f"✅ {d} жазба өшірілді.", reply_markup=delete_submenu())
+                bot.send_message(message.chat.id, f"✅ {d} жазба өширилди.", reply_markup=delete_submenu())
             else:
                 try:
                     rid = int(message.text.strip())
@@ -2374,7 +2374,7 @@ def _delete_table_item(message, table):
                     return
                 cursor.execute(f"DELETE FROM {table} WHERE id=%s", (rid,))  # nosec — whitelist
                 conn.commit()
-                bot.send_message(message.chat.id, f"✅ ID:{rid} өшірілді.", reply_markup=delete_submenu())
+                bot.send_message(message.chat.id, f"✅ ID:{rid} өширилди.", reply_markup=delete_submenu())
     except Exception as e:
         logger.error(f"_delete_table_item({table}): {e}", exc_info=True)
         bot.send_message(message.chat.id, f"❌ DB қатесі: {e}", reply_markup=delete_submenu())
