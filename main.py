@@ -1174,7 +1174,7 @@ def show_student_list(message):
     HEMIS_URL = "https://student.nukusii.uz/dashboard/login"
     chunks = []
     cur = (f"📋 <b>Студентлер дизими ({len(rows)}):</b>\n"
-           f"🎓 <a href='{HEMIS_URL}'>HEMIS Кабинетіне кіру →</a>\n\n")
+           f"🎓 <a href='{HEMIS_URL}'>HEMIS Кабинетке кириу →</a>\n\n")
     for i, row in enumerate(rows, 1):
         full_name = row[0] or "—"
         hemis_d = f"<code>{clean_hemis(row[3])}</code>" if clean_hemis(row[3]) else "—"
@@ -1182,13 +1182,13 @@ def show_student_list(message):
         days_left, _ = get_birthday_info(row[1])
         if days_left == 0:
             prefix = "🎂 "
-            bd_label = "🎂 <b>Бүгін туылған күні!!!</b>"
+            bd_label = "🎂 <b>Бүгин тууылған күни!!!</b>"
         elif days_left == 1:
             prefix = "🔔 "
-            bd_label = "🔔 <b>Ертең туылған күні!</b>"
+            bd_label = "🔔 <b>Ертең тууылған күни!</b>"
         elif days_left is not None and days_left <= 7:
             prefix = "⏳ "
-            bd_label = f"⏳ {days_left} күннен кейін туылған күні"
+            bd_label = f"⏳ {days_left} күннен кейин тууылған күни"
         else:
             prefix = ""
             bd_label = None
@@ -1201,7 +1201,7 @@ def show_student_list(message):
         cur += entry
     if cur: chunks.append(cur)
     hemis_mk = types.InlineKeyboardMarkup()
-    hemis_mk.add(types.InlineKeyboardButton("🎓 HEMIS Кабинетіне кіру", url=HEMIS_URL))
+    hemis_mk.add(types.InlineKeyboardButton("🎓 HEMIS Кабинетке кириу", url=HEMIS_URL))
     for i, chunk in enumerate(chunks):
         if i == len(chunks) - 1:
             bot.send_message(message.chat.id, chunk, reply_markup=hemis_mk, disable_web_page_preview=True)
@@ -1228,7 +1228,7 @@ def show_contacts(message):
         for name, phone in dekanat:
             text += f"  👤 {name}\n  📞 <code>{phone}</code>\n\n"
     if mugallim:
-        text += "👨‍🏫 <b>Муғаллімлер:</b>\n"
+        text += "👨‍🏫 <b>Муғаллимлер:</b>\n"
         for name, phone in mugallim:
             text += f"  👤 {name}\n  📞 <code>{phone}</code>\n\n"
     bot.send_message(message.chat.id, text, reply_markup=main_menu(message.from_user.id))
@@ -1251,7 +1251,7 @@ def add_dekanat_start(message):
         "🏛 Формат: <code>Аты;Телефон</code>", reply_markup=back_menu())
     bot.register_next_step_handler(msg, lambda m: handle_add_contact(m, "dekanat"))
 
-@bot.message_handler(func=lambda m: m.text == "➕ Муғаллім қосыу")
+@bot.message_handler(func=lambda m: m.text == "➕ Муғаллим қосыу")
 @check_access
 def add_mugallim_start(message):
     if not is_admin(message.from_user.id):
@@ -1317,7 +1317,7 @@ def handle_delete_contact(message):
                 cursor.execute("DELETE FROM contacts")
                 d = cursor.rowcount
                 conn.commit()
-                bot.send_message(message.chat.id, f"✅ {d} байланыс өшірілді.", reply_markup=contacts_submenu())
+                bot.send_message(message.chat.id, f"✅ {d} байланыс өширилди.", reply_markup=contacts_submenu())
             else:
                 try:
                     cid = int(message.text.strip())
@@ -1333,7 +1333,7 @@ def handle_delete_contact(message):
                 cursor.execute("DELETE FROM contacts WHERE id=%s", (cid,))
                 conn.commit()
                 bot.send_message(message.chat.id,
-                    f"✅ <b>{row[0]}</b> өшірілді.", reply_markup=contacts_submenu())
+                    f"✅ <b>{row[0]}</b> өширилди.", reply_markup=contacts_submenu())
     except Exception as e:
         logger.error(f"handle_delete_contact: {e}", exc_info=True)
         bot.send_message(message.chat.id, f"❌ DB қатесі: {e}", reply_markup=contacts_submenu())
