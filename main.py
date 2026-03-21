@@ -859,7 +859,7 @@ def main_menu(uid=None):
     m.row("💡 Ұсыныс / Шағым", "📋 Список")
     m.row("📞 Байланыс", "💰 Контракт")
     m.row("📖 Пәнлер", "📊 Сабақ/Ертеңге")
-    m.row("🤖 AI Көмекші")
+    m.row("🤖 AI Көмекши")
     if uid and is_admin(uid): m.row("👮 Админ панель")
     return m
 
@@ -977,7 +977,7 @@ def sabak_menu():
 
 def _sebep_file_menu():
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    m.row("⏭ Өткізіп жіберіу")
+    m.row("⏭ Өткизип жибериу")
     m.row("⬅️ Артқа")
     return m
 
@@ -1011,7 +1011,7 @@ def start(message):
         conn.commit()
     clear_user_state(uid)
     bot.send_message(uid,
-        "👋 <b>Хош келдиңиз!</b>\nS6-DI-23 группасы сизлерді көргенімнен қуанышлыман.\nБөлімді таңлаңыз:",
+        "👋 <b>Хош келдиңиз!</b>\nS6-DI-23 группасы сизлерди көргенимнен қууанышлыман.\nБөлимди таңлаңыз:",
         reply_markup=main_menu(uid))
 
 # ── БЛОК ─────────────────────────────────────────────────────
@@ -1042,10 +1042,10 @@ def handle_block_user(message):
     try:
         parts = [p.strip() for p in message.text.split(";")]
         uid = int(parts[0])
-        reason = parts[1] if len(parts) > 1 else "Себеп көрсетілмеген"
+        reason = parts[1] if len(parts) > 1 else "Себеп көрсетилмеген"
     except (ValueError, IndexError):
         msg = bot.send_message(message.chat.id,
-            "❌ Дұрыс ID жазыңыз (мысал: 123456789 немесе 123456789;себеп):",
+            "❌ Дұрыс ID жазыңыз (мысал: 123456789 ямаса 123456789;себеп):",
             reply_markup=back_menu())
         bot.register_next_step_handler(msg, handle_block_user)
         return
@@ -1098,7 +1098,7 @@ def handle_unblock_user(message):
     try:
         uid = int(message.text.strip())
     except ValueError:
-        msg = bot.send_message(message.chat.id, "❌ Тек сандық ID жазыңыз:", reply_markup=back_menu())
+        msg = bot.send_message(message.chat.id, "❌ Тек сан ID жазыңыз:", reply_markup=back_menu())
         bot.register_next_step_handler(msg, handle_unblock_user)
         return
     try:
@@ -1148,7 +1148,7 @@ def go_back(message):
         bot.send_message(message.chat.id, "📊 Сабақ/Ертеңге", reply_markup=sabak_menu())
     elif mode and mode.startswith("sebep_file:"):
         set_user_state(uid, "sebep_text")
-        bot.send_message(message.chat.id, "❌ <b>Себебіңізді қайта жазыңыз:</b>", reply_markup=back_menu())
+        bot.send_message(message.chat.id, "❌ <b>Себебиңизди қайта жазыңыз:</b>", reply_markup=back_menu())
     else:
         bot.send_message(message.chat.id, "🏠 Бас меню", reply_markup=main_menu(uid))
 
