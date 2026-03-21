@@ -1375,9 +1375,9 @@ def show_contract_user(message):
 
     percent = int((paid / total) * 100) if total > 0 else 0
     bar = "🟩" * (percent // 10) + "⬜" * (10 - percent // 10)
-    text = f"💰 <b>Менің контрактым</b>\n{'─'*30}\n"
+    text = f"💰 <b>Мениң контрактым</b>\n{'─'*30}\n"
     if note: text += f"📝 {note}\n"
-    text += (f"\n💵 Жалпы: <b>{total:,.0f} сум</b>\n✅ Төленді: <b>{paid:,.0f} сум</b>\n"
+    text += (f"\n💵 Улыума: <b>{total:,.0f} сум</b>\n✅ Төленди: <b>{paid:,.0f} сум</b>\n"
              f"⏳ Қалды: <b>{remaining:,.0f} сум</b>\n{bar} <b>{percent}%</b>\n{'─'*30}\n")
     if payments:
         text += "\n📜 <b>Төлем тарихы:</b>\n"
@@ -1392,9 +1392,9 @@ def show_contract_user(message):
             s_remain = r[2] - float(r[3])
             s_pct = int((float(r[3]) / r[2]) * 100) if r[2] > 0 else 0
             s_bar = "🟩" * (s_pct // 10) + "⬜" * (10 - s_pct // 10)
-            me = " 👈 <i>сіз</i>" if r[1] == uid else ""
+            me = " 👈 <i>сиз</i>" if r[1] == uid else ""
             if s_remain <= 0:
-                text += f"✅ <b>{r[0]}</b>{me}\n   {s_bar} <b>100%</b> — Толық төленді\n\n"
+                text += f"✅ <b>{r[0]}</b>{me}\n   {s_bar} <b>100%</b> — Толық төленди\n\n"
             else:
                 text += f"⏳ <b>{r[0]}</b>{me}\n   {s_bar} <b>{s_pct}%</b>\n   Қалды: <b>{s_remain:,.0f} сум</b>\n\n"
     send_long_message(message.chat.id, text, reply_markup=main_menu(uid))
@@ -1434,7 +1434,7 @@ def handle_contract_set(message):
     parts = [p.strip() for p in message.text.split(";")]
     if len(parts) < 2 or not parts[0].lstrip("-").isdigit():
         msg = bot.send_message(message.chat.id,
-            "❌ Формат: <code>TelegramID;Сумма;Ескертіу</code>", reply_markup=back_menu())
+            "❌ Формат: <code>TelegramID;Сумма;Ескертиу</code>", reply_markup=back_menu())
         bot.register_next_step_handler(msg, handle_contract_set)
         return
     try:
@@ -1442,7 +1442,7 @@ def handle_contract_set(message):
         amount = float(parts[1].replace(" ", "").replace(",", ""))
         note = parts[2] if len(parts) > 2 else ""
     except ValueError as e:
-        msg = bot.send_message(message.chat.id, f"❌ Формат қатесі: {e}", reply_markup=back_menu())
+        msg = bot.send_message(message.chat.id, f"❌ Формат қатеси: {e}", reply_markup=back_menu())
         bot.register_next_step_handler(msg, handle_contract_set)
         return
     try:
@@ -1464,7 +1464,7 @@ def handle_contract_set(message):
             reply_markup=contract_submenu())
         try:
             bot.send_message(sid,
-                f"💰 <b>Контрактыңыз киргизілді!</b>\n💵 Жалпы: <b>{amount:,.0f} сум</b>"
+                f"💰 <b>Контрактыңыз киргизилди!</b>\n💵 Улыума: <b>{amount:,.0f} сум</b>"
                 + (f"\n📝 {note}" if note else ""))
         except:
             pass
@@ -1492,9 +1492,9 @@ def payment_add_start(message):
         rows = cursor.fetchall()
     if not rows:
         bot.send_message(message.chat.id,
-            "📭 Контракт киргизілген студент жоқ.", reply_markup=contract_submenu())
+            "📭 Контракт киргизилген студент жоқ.", reply_markup=contract_submenu())
         return
-    text = "➕ <b>Төлем қосыу:</b>\nФормат: <code>TelegramID;Сумма;Ескертіу</code>\n\n📋 <b>Контрактлар:</b>\n"
+    text = "➕ <b>Төлем қосыу:</b>\nФормат: <code>TelegramID;Сумма;Ескертиу</code>\n\n📋 <b>Контрактлар:</b>\n"
     for r in rows:
         rem = r[2] - float(r[3])
         text += f"{'✅' if rem <= 0 else '⏳'} <code>{r[0]}</code> — {r[1]}\n   Қалды: <b>{rem:,.0f} сум</b>\n"
@@ -1510,7 +1510,7 @@ def handle_payment_add(message):
     parts = [p.strip() for p in message.text.split(";")]
     if len(parts) < 2 or not parts[0].lstrip("-").isdigit():
         msg = bot.send_message(message.chat.id,
-            "❌ Формат: <code>TelegramID;Сумма;Ескертіу</code>", reply_markup=back_menu())
+            "❌ Формат: <code>TelegramID;Сумма;Ескертиу</code>", reply_markup=back_menu())
         bot.register_next_step_handler(msg, handle_payment_add)
         return
     try:
@@ -1550,8 +1550,8 @@ def handle_payment_add(message):
             pct = int((paid / total) * 100) if total > 0 else 0
             bar = "🟩" * (pct // 10) + "⬜" * (10 - pct // 10)
             bot.send_message(sid,
-                f"💰 <b>Төлем қабылданды!</b>\n📅 {date_to_ru(ds)}\n{'─'*25}\n"
-                f"✅ Төленді: <b>{amount:,.0f} сум</b>\n⏳ Қалды: <b>{rem:,.0f} сум</b>\n\n{bar} {pct}%")
+                f"💰 <b>Төлем қабылланды!</b>\n📅 {date_to_ru(ds)}\n{'─'*25}\n"
+                f"✅ Төленди: <b>{amount:,.0f} сум</b>\n⏳ Қалды: <b>{rem:,.0f} сум</b>\n\n{bar} {pct}%")
         except:
             pass
     except Exception as e:
@@ -1582,7 +1582,7 @@ def show_all_contracts(message):
     ts = sum(r[1] for r in rows)
     ps = sum(float(r[2]) for r in rows)
     text = (f"📋 <b>Барлық контрактлар ({len(rows)}):</b>\n"
-            f"💵 Жалпы: <b>{ts:,.0f}</b>\n✅ Түскен: <b>{ps:,.0f}</b>\n"
+            f"💵 Улыума: <b>{ts:,.0f}</b>\n✅ Түскен: <b>{ps:,.0f}</b>\n"
             f"⏳ Қалды: <b>{ts-ps:,.0f} сум</b>\n{'─'*30}\n\n")
     for r in rows:
         rem = r[1] - float(r[2])
