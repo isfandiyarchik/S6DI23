@@ -192,7 +192,7 @@ def clean_rate_limit():
 
 # ── ACCESS HELPERS ────────────────────────────────────────────
 # FIX: is_blocked/is_authorized әр хабарламада DB сұранысы жасайды.
-# Кіші бот үшін blocked_users кэші қосылды (өзгерісте автоматты жаңарады).
+# Кіші бот үшын blocked_users кэші қосылды (өзгерісте автоматты жаңарады).
 _blocked_cache: set = set()   # блокланған user_id жиыны
 _blocked_cache_lock = Lock()
 _blocked_cache_loaded = False
