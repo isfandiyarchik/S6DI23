@@ -1914,7 +1914,7 @@ def student_add_or_edit_start(message):
         cursor.execute("SELECT id,full_name,username FROM students ORDER BY full_name")
         rows = cursor.fetchall()
     header = ("➕ <b>Студент қосыу / Өзгертиу:</b>\n\n🆕 <b>Таза қосыу:</b>\n"
-              "<code>жаңа;ФИО;Тууылған күни;Тел;HEMIS;TelegramID</code>\n"
+              "<code>таза;ФИО;Тууылған күни;Тел;HEMIS;TelegramID</code>\n"
               "📌 Мысал: <code>таза;Иванов Иван;2000-01-01;+998901234567;S12345678;123456789</code>\n\n"
               "✏️ <b>Өзгертиу:</b> студент ID-ін жазыңыз\n" + "─" * 30 + "\n")
     if not rows:
@@ -1961,7 +1961,7 @@ def student_add_or_edit(message):
         bot.send_message(message.chat.id, "👤 Студент басқарыу", reply_markup=student_submenu())
         return
     # FIX: "таза" -> "таза" деп өзгертилди (ямаса екеуин де қабыллайды)
-    if message.text.strip().lower().startswith(("таза;", "таза;")):
+    if message.text.strip().lower().startswith(("жаңа;", "таза;")):
         parts = [p.strip() for p in message.text.split(";")]
         if len(parts) < 6 or not parts[1] or not parts[5]:
             msg = bot.send_message(message.chat.id,
@@ -2049,7 +2049,7 @@ def student_edit_save(message, sid, old_fn, old_bd, old_ph, old_hm):
                 (nf, nb, np_, nh, sid))
             conn.commit()
         bot.send_message(message.chat.id,
-            f"✅ <b>{nf}</b> тазаланды!\n🎓 HEMIS: {nh}", reply_markup=student_submenu())
+            f"✅ <b>{nf}</b> жаңаланды!\n🎓 HEMIS: {nh}", reply_markup=student_submenu())
     except Exception as e:
         msg = bot.send_message(message.chat.id,
             f"❌ <code>ФИО;Күн;Тел;HEMIS</code> ({e})", reply_markup=back_menu())
