@@ -486,7 +486,7 @@ def send_to_students(text=None, file_id=None, file_type=None, exclude_id=None):
                     "forbidden",
                 ]) or "403" in err:
                     deactivated.append(sid)
-                    logger.info(f"send_to_students: {sid} бот-ты блоклаған немесе белсенді емес")
+                    logger.info(f"send_to_students: {sid} бот-ты блоклаған ямаса актив емес")
                 else:
                     logger.warning(f"send_to_students({sid}): {e}")
             except Exception as e:
@@ -519,7 +519,7 @@ def send_to_all_students(text=None, exclude_id=None):
             except apihelper.ApiTelegramException as e:
                 err = str(e).lower()
                 if any(x in err for x in ["blocked", "403", "chat not found", "user is deactivated"]):
-                    logger.info(f"send_to_all: {sid} белсенди емес")
+                    logger.info(f"send_to_all: {sid} актив емес")
                 else:
                     logger.warning(f"send_to_all({sid}): {e}")
             except Exception as e:
@@ -845,7 +845,7 @@ def _excel_import_impl(message):
 
     bot.send_message(message.chat.id,
         f"✅ <b>Импорт жуумақланды!</b>\n\n"
-        f"🔄 Жаңаланды: <b>{updated}</b>\n"
+        f"🔄 Тазаланды: <b>{updated}</b>\n"
         f"➕ Қосылды:   <b>{added}</b>\n"
         f"⏭ Өткизилди: <b>{skipped}</b>\n"
         f"❌ Қателер:   <b>{errors}</b>",
@@ -1419,7 +1419,7 @@ def contract_set_start(message):
     if not rows:
         bot.send_message(message.chat.id, "📭 Студентлер жоқ.", reply_markup=contract_submenu())
         return
-    text = "💰 <b>Контракт киргизиу:</b>\nФормат: <code>TelegramID;Сумма;Ескертіу</code>\n\n📋 <b>Студентлер:</b>\n"
+    text = "💰 <b>Контракт киргизиу:</b>\nФормат: <code>TelegramID;Сумма;Ескертиу</code>\n\n📋 <b>Студентлер:</b>\n"
     for r in rows:
         text += f"🆔 <code>{r[0]}</code> — {r[1]}\n"
     msg = bot.send_message(message.chat.id, text, reply_markup=back_menu())
@@ -1809,7 +1809,7 @@ def show_gallery_view(message):
     if not rows:
         bot.send_message(message.chat.id, "📭 Галерея бос.", reply_markup=gallery_menu())
         return
-    bot.send_message(message.chat.id, f"🎞 <b>Барлығы: {len(rows)}</b>\n\nЖүкленуде...")
+    bot.send_message(message.chat.id, f"🎞 <b>Барлығы: {len(rows)}</b>\n\nЖүклениуде...")
     for r in rows:
         uname = f"@{r[3]}" if r[3] else "Белгісіз"
         cap = f"👤 {uname}\n📅 {r[2]}"
@@ -1824,7 +1824,7 @@ def show_gallery_view(message):
 @bot.message_handler(func=lambda m: m.text == "📅 Сабақ кестеси")
 @check_access
 def show_schedule_menu(message):
-    bot.send_message(message.chat.id, "📅 <b>Сабақ кестесі</b>\nКүнди таңлаңыз:", reply_markup=schedule_menu())
+    bot.send_message(message.chat.id, "📅 <b>Сабақ кестеси</b>\nКүнди таңлаңыз:", reply_markup=schedule_menu())
 
 @bot.message_handler(func=lambda m: m.text in DAYS_RU)
 @check_access
@@ -1913,8 +1913,8 @@ def student_add_or_edit_start(message):
     with db_cursor() as (_, cursor):
         cursor.execute("SELECT id,full_name,username FROM students ORDER BY full_name")
         rows = cursor.fetchall()
-    header = ("➕ <b>Студент қосыу / Өзгертіу:</b>\n\n🆕 <b>Таза қосыу:</b>\n"
-              "<code>жаңа;ФИО;Туылған күни;Тел;HEMIS;TelegramID</code>\n"
+    header = ("➕ <b>Студент қосыу / Өзгертиу:</b>\n\n🆕 <b>Таза қосыу:</b>\n"
+              "<code>жаңа;ФИО;Тууылған күни;Тел;HEMIS;TelegramID</code>\n"
               "📌 Мысал: <code>таза;Иванов Иван;2000-01-01;+998901234567;S12345678;123456789</code>\n\n"
               "✏️ <b>Өзгертиу:</b> студент ID-ін жазыңыз\n" + "─" * 30 + "\n")
     if not rows:
@@ -1965,13 +1965,13 @@ def student_add_or_edit(message):
         parts = [p.strip() for p in message.text.split(";")]
         if len(parts) < 6 or not parts[1] or not parts[5]:
             msg = bot.send_message(message.chat.id,
-                "❌ Формат:\n<code>жаңа;ФИО;Тууылған күни;Тел;HEMIS;TelegramID</code>",
+                "❌ Формат:\n<code>таза;ФИО;Тууылған күни;Тел;HEMIS;TelegramID</code>",
                 reply_markup=back_menu())
             bot.register_next_step_handler(msg, student_add_or_edit)
             return
         if not parts[5].lstrip("-").isdigit():
             msg = bot.send_message(message.chat.id,
-                "❌ TelegramID тек сан болуы керек!", reply_markup=back_menu())
+                "❌ TelegramID тек сан болыуы керек!", reply_markup=back_menu())
             bot.register_next_step_handler(msg, student_add_or_edit)
             return
         fn = parts[1]
@@ -2038,7 +2038,7 @@ def student_edit_save(message, sid, old_fn, old_bd, old_ph, old_hm):
         return
     try:
         parts = [p.strip() for p in message.text.split(";")]
-        if len(parts) != 4: raise ValueError("4 бөлик болыуы керек")
+        if len(parts) != 4: raise ValueError("4 бөлек болыуы керек")
         nf = parts[0] if parts[0] != "—" else old_fn
         nb = parts[1] if parts[1] != "—" else old_bd
         np_ = parts[2] if parts[2] != "—" else old_ph
@@ -2389,7 +2389,7 @@ def delete_news_item(message): _delete_table_item(message, "user_news")
 @check_access
 def admin_panel_actions(message):
     if not is_admin(message.from_user.id):
-        bot.send_message(message.chat.id, "🚫 Сіз админ емессіз!")
+        bot.send_message(message.chat.id, "🚫 Сиз админ емессиз!")
         return
     if message.text == "👥 Студентлер":
         with db_cursor() as (_, cursor):
@@ -2403,18 +2403,18 @@ def admin_panel_actions(message):
             nsr = cursor.fetchall()
         now_t = now_uz()
         oc = sum(1 for r in sr if _is_online(r[2], now_t))
-        text = (f"👥 <b>Студентлер дизімі</b>\n✅ Ботқа кірген: <b>{len(sr)}</b>\n"
+        text = (f"👥 <b>Студентлер дизими</b>\n✅ Ботқа кирген: <b>{len(sr)}</b>\n"
                 f"🟢 Онлайн: <b>{oc}</b> | 🔴 Офлайн: <b>{len(sr)-oc}</b>\n{'─'*30}\n\n")
         if sr:
-            text += "📲 <b>Ботқа кіргендер:</b>\n\n"
+            text += "📲 <b>Ботқа ктргенлер:</b>\n\n"
             for i, r in enumerate(sr, 1):
                 uname = f"@{r[1]}" if r[1] else "—"
                 name = r[3] or uname
                 text += f"{i}. {get_online_status(r[2])}\n   👤 <b>{name}</b>\n   🔗 {uname}\n\n"
         else:
-            text += "📭 Әлі ешкім ботқа кірмеген.\n\n"
+            text += "📭 Еле хеш ктм ботқа кирмеген.\n\n"
         if nsr:
-            text += f"{'─'*30}\n⏳ <b>Ботқа кірмегендер ({len(nsr)}):</b>\n"
+            text += f"{'─'*30}\n⏳ <b>Ботқа кирмегенлер ({len(nsr)}):</b>\n"
             for r in nsr:
                 text += f"  • {r[1] or '—'} (ID: <code>{r[0]}</code>)\n"
         send_long_message(message.chat.id, text, reply_markup=admin_menu())
@@ -2432,7 +2432,7 @@ def admin_panel_actions(message):
         bot.send_message(message.chat.id,
             f"📈 <b>Статистика:</b>\n\n👥 Студентлер: <b>{s}</b>\n📅 Сабақлар: <b>{l}</b>\n"
             f"📰 Жаңалықлар: <b>{n}</b>\n📚 Материаллар: <b>{mat}</b>\n🎞 Галерея: <b>{g}</b>\n"
-            f"💡 Ұсыныслар: <b>{sg}</b>\n📊 Барлау күндері: <b>{ad}</b>\n🔒 Блокланған: <b>{bl}</b>",
+            f"💡 Ұсыныслар: <b>{sg}</b>\n📊 Барлау күнлери: <b>{ad}</b>\n🔒 Блокланған: <b>{bl}</b>",
             reply_markup=admin_menu())
 
     elif message.text == "📩 Ус/Ша келген":
@@ -2448,7 +2448,7 @@ def admin_panel_actions(message):
         chunks = []
         cur = f"📩 <b>Ұсыныс/Шағымлар ({len(rows)}):</b>\n\n"
         for r in rows:
-            entry = (f"👤 {'@'+r[3] if r[3] else 'Белгісіз'} | <code>{r[1]}</code>\n"
+            entry = (f"👤 {'@'+r[3] if r[3] else 'Белгисиз'} | <code>{r[1]}</code>\n"
                      f"🕐 {r[2]}\n💬 {r[0]}\n{'─'*25}\n")
             if len(cur) + len(entry) > 3800:
                 chunks.append(cur)
@@ -2460,8 +2460,8 @@ def admin_panel_actions(message):
                 reply_markup=admin_menu() if i == len(chunks) - 1 else None)
 
     elif message.text == "❗ Сабақ болмайды":
-        send_to_students(text="❗ <b>Назар аударыңыз!</b>\nБүгін сабақ болмайды!")
-        bot.send_message(message.chat.id, "✅ Жіберілді!", reply_markup=admin_menu())
+        send_to_students(text="❗ <b>Назер аударыңыз!</b>\nБүгин сабақ болмайды!")
+        bot.send_message(message.chat.id, "✅ Жиберилди!", reply_markup=admin_menu())
 
 # ── БАРЛАУ CALLBACKS ──────────────────────────────────────────
 def build_attendance_markup(session):
@@ -2478,7 +2478,7 @@ def build_attendance_markup(session):
     markup.add(types.InlineKeyboardButton("🏁 Жуумақлау", callback_data="att_finish"))
     text = (f"📊 <b>Барлау — {session['para']}-пара: {session['subject']}</b>\n"
             f"📅 {session['date']}\n{'─'*30}\n👤 <b>{sname}</b>\n{'─'*30}\n"
-            f"<i>{done}/{total} белгіленді</i>")
+            f"<i>{done}/{total} белгиленди</i>")
     return text, markup
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("att_para_"))
@@ -2497,7 +2497,7 @@ def att_select_para(call):
             "ORDER BY full_name")
         students = [[r[0], r[1]] for r in cursor.fetchall()]
     if not students:
-        bot.answer_callback_query(call.id, "Студентлер дізімі бос!")
+        bot.answer_callback_query(call.id, "Студентлер дизими бос!")
         bot.edit_message_text("📭 Студентлерде ФИО жоқ.",
             call.message.chat.id, call.message.message_id)
         return
@@ -2518,14 +2518,14 @@ def att_mark_student(call):
         return
     session = load_attendance_session(call.from_user.id)
     if not session:
-        bot.answer_callback_query(call.id, "Сессия табылмады, қайта бастаңыз.")
+        bot.answer_callback_query(call.id, "Сессия табылмады, қайта баслаңыз.")
         return
     parts = call.data.split("_")
     status = parts[2]
     try:
         sid = int(parts[3])
     except Exception:
-        bot.answer_callback_query(call.id, "Қате, қайта бастаңыз.")
+        bot.answer_callback_query(call.id, "Қате, қайта баслаңыз.")
         return
     session["results"][sid] = status
     session["current_index"] += 1
@@ -2584,22 +2584,22 @@ def finish_attendance(message, admin_id):
             conn.commit()
     except Exception as e:
         logger.error(f"finish_attendance DB: {e}", exc_info=True)
-        bot.send_message(message.chat.id, f"❌ Барлауды сақтауда қате: {e}")
+        bot.send_message(message.chat.id, f"❌ Барлауды сақлауда қате: {e}")
         return
 
     total = len(students)
     # FIX: Тек results-та белгіленген absent-тар туралы ескертіу
     actually_marked = len(results)
     result_text = (
-        f"📊 <b>Барлау нәтижесі сақталды!</b>\n"
+        f"📊 <b>Барлау нәтийжеси сақланды!</b>\n"
         f"📅 {date_str} | {para}-пара: <b>{subject}</b>\n{'─'*30}\n"
         f"✅ Бар: <b>{len(present_list)}/{total}</b>\n"
         f"❌ Жоқ: <b>{len(absent_list)}/{total}</b>\n")
     if actually_marked < total:
-        result_text += f"⚠️ <i>{total - actually_marked} студент белгіленбеді (absent деп саналды)</i>\n"
+        result_text += f"⚠️ <i>{total - actually_marked} студент белгиленбеди (absent деп саналды)</i>\n"
     result_text += f"{'─'*30}\n"
     if absent_list:
-        result_text += "❌ <b>Жоқтар:</b>\n"
+        result_text += "❌ <b>Жоқлар:</b>\n"
         for _, n in absent_list:
             result_text += f"  • {n}\n"
     else:
@@ -2614,19 +2614,19 @@ def finish_attendance(message, admin_id):
     if path:
         if not send_excel_file(message.chat.id, path,
                 caption=f"📊 {date_str} | {para}-пара: {subject}"):
-            bot.send_message(message.chat.id, "⚠️ Excel жіберілмеді.")
+            bot.send_message(message.chat.id, "⚠️ Excel жиберилмеди.")
     else:
         bot.send_message(message.chat.id, "⚠️ Excel жасалмады (openpyxl орнатылған ба?)")
 
     for sid, sname in absent_list:
         try:
             bot.send_message(sid,
-                f"⚠️ <b>Ескертіу!</b>\n\nСіз бүгін <b>{para}-парада</b> (<b>{subject}</b>) болмадыңыз!\n"
-                f"📅 {date_str}\n\nСебебіңізді группаға хабарлаңыз.")
+                f"⚠️ <b>Ескертиу!</b>\n\nСиз бүгин <b>{para}-парада</b> (<b>{subject}</b>) болмадыңыз!\n"
+                f"📅 {date_str}\n\nСебебиңизди группаға хабарлаңыз.")
         except Exception:
             pass
     bot.send_message(message.chat.id,
-        "✅ Барлау сақталды!\n📅 Тарихты <b>Барлау тарихы</b> арқалы ашыңыз.",
+        "✅ Барлау сақланды!\n📅 Тарихты <b>Барлау тарихы</b> арқалы ашыңыз.",
         reply_markup=attendance_submenu())
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("hist_month_"))
@@ -2650,7 +2650,7 @@ def hist_select_month(call):
             text=f"📆 {date_to_ru(d)}", callback_data=f"hist_day_{d}"))
     markup.add(types.InlineKeyboardButton("◀️ Назад", callback_data="hist_back_months"))
     bot.edit_message_text(
-        f"📅 <b>{MONTHS_RU.get(int(mo), mo)} {y}</b>\n\nКүнді таңлаңыз:",
+        f"📅 <b>{MONTHS_RU.get(int(mo), mo)} {y}</b>\n\nКүнди таңлаңыз:",
         call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
@@ -2706,7 +2706,7 @@ def hist_show_para(call):
     if not is_admin(call.from_user.id):
         bot.answer_callback_query(call.id, "🚫 Тек admin-ге!")
         return
-    # FIX: "hist_para_2024-01-15_2" — соңғы '_' арқылы бөлу
+    # FIX: "hist_para_2024-01-15_2" — соңғы '_' арқалы бөлиу
     # split("_") қате береді: ['hist','para','2024-01','15','2']
     rest = call.data[len("hist_para_"):]   # "2024-01-15_2"
     last_us = rest.rfind("_")
@@ -2724,13 +2724,13 @@ def hist_show_para(call):
     present = [r[0] for r in records if r[1] == "present"]
     absent = [r[0] for r in records if r[1] == "absent"]
     total = len(records)
-    text = (f"📊 <b>Барлау нәтижесі</b>\n"
+    text = (f"📊 <b>Барлау нәтийжеси</b>\n"
             f"📆 {date_to_ru(date_str)} | {para}-пара: <b>{subject}</b>\n{'─'*30}\n"
             f"✅ Бар: <b>{len(present)}/{total}</b>\n❌ Жоқ: <b>{len(absent)}/{total}</b>\n{'─'*30}\n")
     if present:
         text += "✅ <b>Барлар:</b>\n" + "".join(f"  • {n}\n" for n in present) + "\n"
     if absent:
-        text += "❌ <b>Жоқтар:</b>\n" + "".join(f"  • {n}\n" for n in absent)
+        text += "❌ <b>Жоқлар:</b>\n" + "".join(f"  • {n}\n" for n in absent)
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton(
         "📥 Excel жүклеу", callback_data=f"hist_excel_{date_str}_{para}"))
@@ -2745,7 +2745,7 @@ def hist_download_excel(call):
     if not is_admin(call.from_user.id):
         bot.answer_callback_query(call.id, "🚫 Тек admin-ге!")
         return
-    # FIX: "hist_excel_2024-01-15_2" — соңғы '_' арқылы бөлу
+    # FIX: "hist_excel_2024-01-15_2" — соңғы '_' арқалы бөлиу
     rest = call.data[len("hist_excel_"):]   # "2024-01-15_2"
     last_us = rest.rfind("_")
     date_str = rest[:last_us]               # "2024-01-15"
@@ -2763,7 +2763,7 @@ def hist_download_excel(call):
     if path:
         ok = send_excel_file(call.message.chat.id, path,
             caption=f"📊 Барлау: {date_str} | {para}-пара: {subject}")
-        bot.answer_callback_query(call.id, "✅ Excel жіберілді!" if ok else "❌ Жіберу қатесі.")
+        bot.answer_callback_query(call.id, "✅ Excel жиберилди!" if ok else "❌ Жибериу қатеси.")
     else:
         bot.answer_callback_query(call.id, "❌ Excel жасалмады.")
 
