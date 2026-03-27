@@ -1136,21 +1136,28 @@ def go_back(message):
     uid = message.from_user.id
     mode = get_user_state(uid)
     clear_user_state(uid)
-    if mode == "materials":
-        bot.send_message(message.chat.id, "📚 Сабақ материаллары", reply_markup=materials_menu())
-    elif mode == "gallery":
-        bot.send_message(message.chat.id, "📷 Фото/Видео", reply_markup=gallery_menu())
-    elif mode == "ai_chat":
-        bot.send_message(message.chat.id, "🏠 Бас меню", reply_markup=main_menu(uid))
-    elif mode and mode.startswith("variant:") and is_admin(uid):
-        bot.send_message(message.chat.id, "📖 Пән басқарыу", reply_markup=panler_admin_submenu())
-    elif mode == "sebep_text":
-        bot.send_message(message.chat.id, "📊 Сабақ/Ертеңге", reply_markup=sabak_menu())
-    elif mode and mode.startswith("sebep_file:"):
-        set_user_state(uid, "sebep_text")
-        bot.send_message(message.chat.id, "❌ <b>Себебиңизди қайта жазыңыз:</b>", reply_markup=back_menu())
-    else:
-        bot.send_message(message.chat.id, "🏠 Бас меню", reply_markup=main_menu(uid))
+    try:
+        if mode == "materials":
+            bot.send_message(message.chat.id, "📚 Сабақ материаллары", reply_markup=materials_menu())
+        elif mode == "gallery":
+            bot.send_message(message.chat.id, "📷 Фото/Видео", reply_markup=gallery_menu())
+        elif mode == "ai_chat":
+            bot.send_message(message.chat.id, "🏠 Бас меню", reply_markup=main_menu(uid))
+        elif mode and mode.startswith("variant:") and is_admin(uid):
+            bot.send_message(message.chat.id, "📖 Пән басқарыу", reply_markup=panler_admin_submenu())
+        elif mode == "sebep_text":
+            bot.send_message(message.chat.id, "📊 Сабақ/Ертеңге", reply_markup=sabak_menu())
+        elif mode and mode.startswith("sebep_file:"):
+            set_user_state(uid, "sebep_text")
+            bot.send_message(message.chat.id, "❌ <b>Себебиңизди қайта жазыңыз:</b>", reply_markup=back_menu())
+        else:
+            bot.send_message(message.chat.id, "🏠 Бас меню", reply_markup=main_menu(uid))
+    except Exception as e:
+        logger.warning(f"go_back қате: {e}")
+        try:
+            bot.send_message(message.chat.id, "🏠 Бас меню", reply_markup=main_menu(uid))
+        except Exception:
+            pass
 
 @bot.message_handler(func=lambda m: m.text == "⬅️ Админге қайтыу")
 @check_access
@@ -3417,7 +3424,17 @@ if __name__ == "__main__":
 
     while True:
         try:
-            bot.infinity_polling(skip_pending=True, timeout=60, long_polling_timeout=30)
+            bot.infinity_polling(
+                skip_pending=True,
+                timeout=60,
+                long_polling_timeout=30,
+            )
+        except apihelper.ApiException as e:
+            logger.error(f"Telegram API қате: {e}")
+            time.sleep(10)
+        except ConnectionError as e:
+            logger.warning(f"Байланыс үзілді, қайта қосылуда: {e}")
+            time.sleep(5)
         except Exception as e:
             logger.error(f"Polling қате: {e}", exc_info=True)
             time.sleep(5)
