@@ -3433,7 +3433,7 @@ if __name__ == "__main__":
             logger.error(f"Telegram API қате: {e}")
             time.sleep(10)
         except ConnectionError as e:
-            logger.warning(f"Байланыс үзілді, қайта қосылуда: {e}")
+            logger.warning(f"Байланыс үзилди, қайта қосылуда: {e}")
             time.sleep(5)
         except Exception as e:
             logger.error(f"Polling қате: {e}", exc_info=True)
