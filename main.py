@@ -2147,7 +2147,7 @@ def schedule_add_start(message):
         "📝 Формат: <code>Понедельник;Математика;09:00</code>", reply_markup=back_menu())
     bot.register_next_step_handler(msg, add_lesson)
 
-@bot.message_handler(func=lambda m: m.text == "❌ Сабақ өшіріу")
+@bot.message_handler(func=lambda m: m.text == "❌ Сабақ өшириу")
 @check_access
 def schedule_delete_start(message):
     if not is_admin(message.from_user.id):
