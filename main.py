@@ -3404,12 +3404,12 @@ if __name__ == "__main__":
                 long_polling_timeout=30,
             )
         except apihelper.ApiException as e:
-    if "409" in str(e):
-        logger.warning("409 Conflict — басқа instance бар, 30 сек күтемін...")
-        time.sleep(30)
-    else:
-        logger.error(f"Telegram API қате: {e}")
-        time.sleep(10)
+            if "409" in str(e):
+                logger.warning("409 Conflict — басқа instance бар, 30 сек күтемін...")
+                time.sleep(30)
+            else:
+                logger.error(f"Telegram API қате: {e}")
+                time.sleep(10)
         except ConnectionError as e:
             logger.warning(f"Байланыс үзилди, қайта қосылуда: {e}")
             time.sleep(5)
