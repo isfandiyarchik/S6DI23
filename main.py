@@ -1339,7 +1339,7 @@ def handle_delete_contact(message):
                     f"✅ <b>{row[0]}</b> өширилди.", reply_markup=contacts_submenu())
     except Exception as e:
         logger.error(f"handle_delete_contact: {e}", exc_info=True)
-        bot.send_message(message.chat.id, f"❌ DB қатесі: {e}", reply_markup=contacts_submenu())
+        bot.send_message(message.chat.id, f"❌ DB қатеси: {e}", reply_markup=contacts_submenu())
 
 # ── КОНТРАКТ ──────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: m.text == "💰 Контракт")
@@ -2053,7 +2053,7 @@ def student_edit_save(message, sid, old_fn, old_bd, old_ph, old_hm):
                 (nf, nb, np_, nh, sid))
             conn.commit()
         bot.send_message(message.chat.id,
-            f"✅ <b>{nf}</b> тазаланды!\n🎓 HEMIS: {nh}", reply_markup=student_submenu())
+            f"✅ <b>{nf}</b> жаңаланды!\n🎓 HEMIS: {nh}", reply_markup=student_submenu())
     except Exception as e:
         msg = bot.send_message(message.chat.id,
             f"❌ <code>ФИО;Күн;Тел;HEMIS</code> ({e})", reply_markup=back_menu())
