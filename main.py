@@ -2245,8 +2245,8 @@ def start_attendance(message):
     markup = types.InlineKeyboardMarkup()
     for i, (subject, time_) in enumerate(lessons, 1):
         markup.add(types.InlineKeyboardButton(
-            text=f"{i}-пара: {subject} ({time_})",
-            callback_data=f"att_para_{i}_{subject}"))
+    text=f"{i}-пара: {subject} ({time_})",
+    callback_data=f"att_para_{i}"))
     bot.send_message(message.chat.id,
         f"📊 <b>Барлау — {today}</b>\n\nҚай параны белгилейсиз:", reply_markup=markup)
 
@@ -2482,10 +2482,21 @@ def att_select_para(call):
     if not is_admin(call.from_user.id):
         bot.answer_callback_query(call.id, "🚫 Тек admin-ге!")
         return
-    parts = call.data.split("_", 3)
+    parts = call.data.split("_")
     para = int(parts[2])
-    subject = parts[3]
     date_str = now_uz().strftime("%Y-%m-%d")
+
+    # Subject-ті DB-ден аламыз
+    today = DAYS_EN_TO_RU.get(now_uz().strftime("%A"), "")
+    with db_cursor() as (_, cursor):
+        cursor.execute(
+            "SELECT subject FROM schedule WHERE day=%s ORDER BY time", (today,))
+        lessons = [r[0] for r in cursor.fetchall()]
+
+    if para > len(lessons):
+        bot.answer_callback_query(call.id, "Қате пара нөмірі.")
+        return
+    subject = lessons[para - 1]
     with db_cursor() as (_, cursor):
         cursor.execute(
             "SELECT id,full_name FROM students WHERE full_name IS NOT NULL AND full_name!='' "
