@@ -3400,30 +3400,32 @@ def auto_scheduler():
 if __name__ == "__main__":
     Thread(target=auto_scheduler, daemon=True).start()
 
-    def run_flask():
-        port = int(os.environ.get("PORT", 8080))
-        app.run(host="0.0.0.0", port=port, debug=False)
+    # Bot polling — daemon thread-та
+    def run_bot():
+        while True:
+            try:
+                bot.infinity_polling(
+                    skip_pending=True,
+                    timeout=60,
+                    long_polling_timeout=30,
+                )
+            except apihelper.ApiException as e:
+                if "409" in str(e):
+                    logger.warning("409 Conflict — 30 сек күтемен...")
+                    time.sleep(30)
+                else:
+                    logger.error(f"Telegram API қате: {e}")
+                    time.sleep(10)
+            except ConnectionError as e:
+                logger.warning(f"Байланыс үзилди: {e}")
+                time.sleep(5)
+            except Exception as e:
+                logger.error(f"Polling қате: {e}", exc_info=True)
+                time.sleep(5)
 
-    Thread(target=run_flask, daemon=True).start()
+    Thread(target=run_bot, daemon=True).start()
     logger.info("🤖 S6-DI-23 Bot иске қосылды!")
 
-    while True:
-        try:
-            bot.infinity_polling(
-                skip_pending=True,
-                timeout=60,
-                long_polling_timeout=30,
-            )
-        except apihelper.ApiException as e:
-            if "409" in str(e):
-                logger.warning("409 Conflict — басқа instance бар, 30 сек күтемін...")
-                time.sleep(30)
-            else:
-                logger.error(f"Telegram API қате: {e}")
-                time.sleep(10)
-        except ConnectionError as e:
-            logger.warning(f"Байланыс үзилди, қайта қосылуда: {e}")
-            time.sleep(5)
-        except Exception as e:
-            logger.error(f"Polling қате: {e}", exc_info=True)
-            time.sleep(5)
+    # Flask — негизги thread (Render үшын миндетли!)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)
