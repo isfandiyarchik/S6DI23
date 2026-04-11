@@ -953,6 +953,7 @@ def schedule_menu():
 def panler_admin_submenu():
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     m.row("➕ Пән қосыу")
+    m.row("📎 Пәнге файл қосыу")
     m.row("🗑 Пән өшириу")
     m.row("⬅️ Админге қайтыу")
     return m
@@ -2931,8 +2932,107 @@ def handle_variant_file(message, subject):
             f"✅ <b>{subject}</b>\n📎 {file_name} қосылды!", reply_markup=panler_admin_submenu())
     except Exception as e:
         logger.error(f"handle_variant_file: {e}", exc_info=True)
-        bot.send_message(message.chat.id, f"❌ DB қатесі: {e}", reply_markup=panler_admin_submenu())
+        bot.send_message(message.chat.id, f"❌ DB қатеси: {e}", reply_markup=panler_admin_submenu())
+@bot.message_handler(func=lambda m: m.text == "📎 Пәнге файл қосыу")
+@check_access
+def add_file_to_existing_subject(message):
+    if not is_admin(message.from_user.id):
+        bot.send_message(message.chat.id, "🚫")
+        return
+    with db_cursor() as (_, cursor):
+        cursor.execute(
+            "SELECT subject, COUNT(*) as cnt FROM test_variants GROUP BY subject ORDER BY subject")
+        rows = cursor.fetchall()
+    if not rows:
+        bot.send_message(message.chat.id, "📭 Еле пән жоқ. Алдын ➕ Пән қосыу арқалы қосыңыз.",
+            reply_markup=panler_admin_submenu())
+        return
+    markup = types.InlineKeyboardMarkup()
+    for subj, cnt in rows:
+        markup.add(types.InlineKeyboardButton(
+            text=f"📖 {subj} ({cnt} файл)",
+            callback_data=f"addfile_subj_{subj}"))
+    bot.send_message(message.chat.id,
+        "📎 <b>Қай пәнге файл қосасыз?</b>", reply_markup=markup)
 
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("addfile_subj_"))
+@check_access_cb
+def addfile_subject_selected(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "🚫")
+        return
+    subject = call.data.replace("addfile_subj_", "")
+    bot.answer_callback_query(call.id)
+    with db_cursor() as (_, cursor):
+        cursor.execute("SELECT COUNT(*) FROM test_variants WHERE subject=%s", (subject,))
+        cnt = cursor.fetchone()[0]
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("⏭ Тайын")
+    markup.row("⬅️ Артқа")
+    msg = bot.send_message(call.message.chat.id,
+        f"📖 <b>{subject}</b> — ағымда {cnt} файл бар.\n\n"
+        "📤 Файл жибериңиз (бирнеше болса бирден кейин бири).\n"
+        "<i>Бари жиберилгеннен кейин <b>⏭ Тайын</b> басыңыз.</i>",
+        reply_markup=markup)
+    bot.register_next_step_handler(msg, lambda m: handle_addfile_loop(m, subject))
+
+
+def handle_addfile_loop(message, subject):
+    if not is_admin(message.from_user.id):
+        return
+    if message.text and message.text == "⬅️ Артқа":
+        bot.send_message(message.chat.id, "📖 Пән басқарыу", reply_markup=panler_admin_submenu())
+        return
+    if message.text and message.text == "⏭ Тайын":
+        with db_cursor() as (_, cursor):
+            cursor.execute("SELECT COUNT(*) FROM test_variants WHERE subject=%s", (subject,))
+            total = cursor.fetchone()[0]
+        bot.send_message(message.chat.id,
+            f"✅ <b>{subject}</b> пәни жаңаланды!\n📂 Барлығы: <b>{total} файл</b>",
+            reply_markup=panler_admin_submenu())
+        return
+
+    file_id = file_type = file_name = None
+    if message.document:
+        file_id = message.document.file_id
+        file_type = "document"
+        file_name = message.document.file_name or "Файл"
+    elif message.photo:
+        file_id = message.photo[-1].file_id
+        file_type = "photo"
+        file_name = "Фото"
+    elif message.video:
+        file_id = message.video.file_id
+        file_type = "video"
+        file_name = message.video.file_name or "Видео"
+    else:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        markup.row("⏭ Тайын")
+        markup.row("⬅️ Артқа")
+        msg = bot.send_message(message.chat.id,
+            "⚠️ Тек файл, фото ямаса видео жибериңиз:", reply_markup=markup)
+        bot.register_next_step_handler(msg, lambda m: handle_addfile_loop(m, subject))
+        return
+
+    try:
+        with db_cursor() as (conn, cursor):
+            cursor.execute(
+                "INSERT INTO test_variants(subject,file_id,file_type,file_name,uploader_id) "
+                "VALUES(%s,%s,%s,%s,%s)",
+                (subject, file_id, file_type, file_name, message.from_user.id))
+            conn.commit()
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        markup.row("⏭ Тайын")
+        markup.row("⬅️ Артқа")
+        msg = bot.send_message(message.chat.id,
+            f"✅ <b>{file_name}</b> қосылды!\n"
+            "Келесини жибериңиз ямаса <b>⏭ Тайын</b> басыңыз:",
+            reply_markup=markup)
+        bot.register_next_step_handler(msg, lambda m: handle_addfile_loop(m, subject))
+    except Exception as e:
+        logger.error(f"handle_addfile_loop: {e}", exc_info=True)
+        bot.send_message(message.chat.id, f"❌ DB қатеси: {e}", reply_markup=panler_admin_submenu())
 @bot.message_handler(func=lambda m: m.text == "🗑 Пән өшириу")
 @check_access
 def delete_variant_start(message):
