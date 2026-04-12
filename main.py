@@ -31,7 +31,7 @@ def _parse_admin_ids():
             return set(int(x.strip()) for x in env_val.split(",") if x.strip())
         except Exception:
             pass
-    return {5880534778, 5541976681}
+    return {5880534778,5541976681,7716121385}
 
 ADMIN_IDS = _parse_admin_ids()
 def is_admin(uid): return uid in ADMIN_IDS
