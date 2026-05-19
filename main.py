@@ -196,7 +196,7 @@ _blocked_cache: set = set()
 _blocked_cache_lock = Lock()
 _blocked_cache_loaded = False
 
-# FIX 3: Дурыс double-checked locking — DB соранысы lock ишинде
+# FIX 3: Дурыыс double-checked locking — DB соранысы lock ишинде
 def _load_blocked_cache():
     global _blocked_cache_loaded
     if _blocked_cache_loaded:
