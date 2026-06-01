@@ -48,7 +48,7 @@ def get_pool():
         with _db_pool_lock:
             if _db_pool is None:
                 if not DATABASE_URL:
-                    raise RuntimeError("DATABASE_URL орнатылмаған!")
+                    raise RuntimeError("DATABASE_URL орнатылмаған!!!")
                 _db_pool = psycopg2_pool.ThreadedConnectionPool(
                     minconn=2, maxconn=15, dsn=DATABASE_URL, connect_timeout=10)
     return _db_pool
