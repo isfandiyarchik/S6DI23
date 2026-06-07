@@ -2319,4 +2319,5 @@ def admin_panel_actions(message):
     if message.text == "👥 Студентлер":
         with db_cursor() as (_, cursor):
             cursor.execute(
-                "SELECT id,username,last
+    "SELECT id,username,last_active,full_name FROM students WHERE started=1 "
+    "ORDER BY last_active DESC")
