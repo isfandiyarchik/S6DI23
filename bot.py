@@ -2321,3 +2321,7 @@ def admin_panel_actions(message):
             cursor.execute(
     "SELECT id,username,last_active,full_name FROM students WHERE started=1 "
     "ORDER BY last_active DESC")
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    Thread(target=lambda: bot.infinity_polling(), daemon=True).start()
+    app.run(host="0.0.0.0", port=port)
