@@ -2316,11 +2316,323 @@ def admin_panel_actions(message):
     if not is_admin(message.from_user.id):
         bot.send_message(message.chat.id, "🚫 Сиз админ емессиз!")
         return
+
     if message.text == "👥 Студентлер":
         with db_cursor() as (_, cursor):
             cursor.execute(
-    "SELECT id,username,last_active,full_name FROM students WHERE started=1 "
-    "ORDER BY last_active DESC")
+                "SELECT id,username,last_active,full_name FROM students WHERE started=1 "
+                "ORDER BY last_active DESC")
+            rows = cursor.fetchall()
+        if not rows:
+            bot.send_message(message.chat.id, "📭 Белсенди студентлер жоқ.", reply_markup=admin_menu())
+            return
+        now_t = now_uz()
+        text = f"👥 <b>Белсенди студентлер ({len(rows)}):</b>\n\n"
+        for r in rows:
+            name = r[3] or f"@{r[1]}" if r[1] else f"ID:{r[0]}"
+            status = get_online_status(r[2]) if r[2] else "⚪ Белгисиз"
+            text += f"{status} <b>{name}</b>\n"
+        send_long_message(message.chat.id, text, reply_markup=admin_menu())
+
+    elif message.text == "📈 Статистика":
+        with db_cursor() as (_, cursor):
+            cursor.execute("SELECT COUNT(*) FROM students")
+            total = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM students WHERE started=1")
+            active = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM attendance")
+            att_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM user_news")
+            news_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM materials")
+            mat_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM suggestions")
+            sug_count = cursor.fetchone()[0]
+        text = (f"📈 <b>Статистика</b>\n{'─'*30}\n"
+                f"👥 Барлық студентлер: <b>{total}</b>\n"
+                f"🟢 Белсенділер: <b>{active}</b>\n"
+                f"📊 Барлау жазбалары: <b>{att_count}</b>\n"
+                f"📰 Жаңалықлар: <b>{news_count}</b>\n"
+                f"📚 Материалдар: <b>{mat_count}</b>\n"
+                f"💡 Ұсыныслар: <b>{sug_count}</b>")
+        bot.send_message(message.chat.id, text, reply_markup=admin_menu())
+
+    elif message.text == "❗ Сабақ болмайды":
+        msg = bot.send_message(message.chat.id,
+            "❗ <b>Сабақ болмайды хабарын жазыңыз:</b>", reply_markup=back_menu())
+        bot.register_next_step_handler(msg, handle_no_lesson)
+
+    elif message.text == "📩 Ус/Ша келген":
+        with db_cursor() as (_, cursor):
+            cursor.execute(
+                "SELECT content,user_id,date FROM suggestions ORDER BY date DESC LIMIT 20")
+            rows = cursor.fetchall()
+        if not rows:
+            bot.send_message(message.chat.id, "📭 Ұсыныслар жоқ.", reply_markup=admin_menu())
+            return
+        text = f"📩 <b>Ұсыныслар/Шағымлар ({len(rows)}):</b>\n\n"
+        for r in rows:
+            text += f"🆔 <code>{r[1]}</code>\n📌 {r[0]}\n🕐 {r[2]}\n{'─'*20}\n"
+        send_long_message(message.chat.id, text, reply_markup=admin_menu())
+
+def handle_no_lesson(message):
+    if not is_admin(message.from_user.id):
+        return
+    if not message.text or message.text == "⬅️ Артқа":
+        bot.send_message(message.chat.id, "👮 Админ панель", reply_markup=admin_menu())
+        return
+    send_to_students(text=f"❗ <b>Хабарлама!</b>\n\n{message.text}")
+    bot.send_message(message.chat.id, "✅ Барлық студентлерге жиберилди!", reply_markup=admin_menu())
+
+# ── CALLBACK: БАРЛАУ ─────────────────────────────────────────
+@bot.callback_query_handler(func=lambda c: c.data.startswith("att_para_"))
+@check_access_cb
+def att_select_para(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "🚫"); return
+    para = int(call.data.split("_")[2])
+    date_str = now_uz().strftime("%Y-%m-%d")
+    today = DAYS_EN_TO_RU.get(now_uz().strftime("%A"), "")
+    with db_cursor() as (_, cursor):
+        cursor.execute("SELECT subject FROM schedule WHERE day=%s ORDER BY time", (today,))
+        lessons = [r[0] for r in cursor.fetchall()]
+    if para > len(lessons):
+        bot.answer_callback_query(call.id, "Қате пара нөмірі."); return
+    subject = lessons[para - 1]
+    with db_cursor() as (_, cursor):
+        cursor.execute(
+            "SELECT id,full_name FROM students WHERE full_name IS NOT NULL AND full_name!='' ORDER BY full_name")
+        students = [[r[0], r[1]] for r in cursor.fetchall()]
+    if not students:
+        bot.answer_callback_query(call.id, "Студентлер дізімі бос!")
+        bot.edit_message_text("📭 Студентлерде ФИО жоқ.",
+            call.message.chat.id, call.message.message_id); return
+    session = {"date": date_str, "para": para, "subject": subject,
+               "students": students, "results": {}, "current_index": 0}
+    save_attendance_session(call.from_user.id, session)
+    text, markup = _build_attendance_markup(session)
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id,
+        reply_markup=markup, parse_mode="HTML")
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("att_mark_"))
+@check_access_cb
+def att_mark_student(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "🚫"); return
+    session = load_attendance_session(call.from_user.id)
+    if not session:
+        bot.answer_callback_query(call.id, "Сессия табылмады, қайта баслаңыз."); return
+    parts = call.data.split("_"); status = parts[2]
+    try: sid = int(parts[3])
+    except:
+        bot.answer_callback_query(call.id, "Қате."); return
+    session["results"][sid] = status
+    session["current_index"] += 1
+    save_attendance_session(call.from_user.id, session)
+    sname = next((s[1] for s in session["students"] if s[0] == sid), "—")
+    bot.answer_callback_query(call.id, f"{'✅' if status == 'present' else '❌'} {sname}")
+    if session["current_index"] >= len(session["students"]):
+        _finish_attendance(call.message, call.from_user.id)
+    else:
+        text, markup = _build_attendance_markup(session)
+        try:
+            bot.edit_message_text(text, call.message.chat.id, call.message.message_id,
+                reply_markup=markup, parse_mode="HTML")
+        except: pass
+
+@bot.callback_query_handler(func=lambda c: c.data == "att_finish")
+@check_access_cb
+def att_finish_early(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id); return
+    session = load_attendance_session(call.from_user.id)
+    if not session:
+        bot.answer_callback_query(call.id, "Сессия табылмады."); return
+    bot.answer_callback_query(call.id, "Барлау жуумақланды!")
+    _finish_attendance(call.message, call.from_user.id)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("hist_month_"))
+@check_access_cb
+def hist_select_month(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "🚫"); return
+    ym = call.data.replace("hist_month_", ""); y, mo = ym.split("-")
+    with db_cursor() as (_, cursor):
+        cursor.execute(
+            "SELECT DISTINCT date FROM attendance WHERE LEFT(date,7)=%s ORDER BY date DESC", (ym,))
+        days = [r[0] for r in cursor.fetchall()]
+    if not days:
+        bot.answer_callback_query(call.id, "Бұл айда барлау жоқ."); return
+    markup = types.InlineKeyboardMarkup()
+    for d in days:
+        markup.add(types.InlineKeyboardButton(
+            text=f"📆 {date_to_ru(d)}", callback_data=f"hist_day_{d}"))
+    markup.add(types.InlineKeyboardButton("◀️ Назад", callback_data="hist_back_months"))
+    bot.edit_message_text(
+        f"📅 <b>{MONTHS_RU.get(int(mo), mo)} {y}</b>\n\nКүнді таңлаңыз:",
+        call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data == "hist_back_months")
+@check_access_cb
+def hist_back_to_months(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id); return
+    with db_cursor() as (_, cursor):
+        cursor.execute("SELECT DISTINCT LEFT(date,7) as ym FROM attendance ORDER BY ym DESC")
+        months = [r[0] for r in cursor.fetchall()]
+    markup = types.InlineKeyboardMarkup()
+    for ym in months:
+        y, mo = ym.split("-")
+        markup.add(types.InlineKeyboardButton(
+            text=f"📅 {MONTHS_RU.get(int(mo), mo)} {y}", callback_data=f"hist_month_{ym}"))
+    bot.edit_message_text("📅 <b>Барлау тарихы</b>\n\nАйды таңлаңыз:",
+        call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("hist_day_"))
+@check_access_cb
+def hist_select_day(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "🚫"); return
+    date_str = call.data.replace("hist_day_", ""); ym = date_str[:7]
+    with db_cursor() as (_, cursor):
+        cursor.execute(
+            "SELECT DISTINCT para,subject FROM attendance WHERE date=%s ORDER BY para", (date_str,))
+        paras = cursor.fetchall()
+    if not paras:
+        bot.answer_callback_query(call.id, "Бұл күнде барлау жоқ."); return
+    markup = types.InlineKeyboardMarkup()
+    for para, subject in paras:
+        markup.add(types.InlineKeyboardButton(
+            text=f"📖 {para}-пара: {subject}",
+            callback_data=f"hist_para_{date_str}_{para}"))
+    markup.add(types.InlineKeyboardButton("◀️ Назад", callback_data=f"hist_month_{ym}"))
+    bot.edit_message_text(f"📆 <b>{date_to_ru(date_str)}</b>\n\nПараны таңлаңыз:",
+        call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("hist_para_"))
+@check_access_cb
+def hist_show_para(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "🚫"); return
+    rest = call.data[len("hist_para_"):]; last_us = rest.rfind("_")
+    date_str = rest[:last_us]; para = int(rest[last_us + 1:])
+    with db_cursor() as (_, cursor):
+        cursor.execute(
+            "SELECT student_name,status FROM attendance WHERE date=%s AND para=%s ORDER BY student_name",
+            (date_str, para))
+        records = cursor.fetchall()
+        cursor.execute("SELECT DISTINCT subject FROM attendance WHERE date=%s AND para=%s", (date_str, para))
+        sr = cursor.fetchone()
+    subject = sr[0] if sr else "—"
+    present = [r[0] for r in records if r[1] == "present"]
+    absent = [r[0] for r in records if r[1] == "absent"]
+    total = len(records)
+    text = (f"📊 <b>Барлау нәтижесі</b>\n"
+            f"📆 {date_to_ru(date_str)} | {para}-пара: <b>{subject}</b>\n{'─'*30}\n"
+            f"✅ Бар: <b>{len(present)}/{total}</b>\n❌ Жоқ: <b>{len(absent)}/{total}</b>\n{'─'*30}\n")
+    if present: text += "✅ <b>Барлар:</b>\n" + "".join(f"  • {n}\n" for n in present) + "\n"
+    if absent: text += "❌ <b>Жоқлар:</b>\n" + "".join(f"  • {n}\n" for n in absent)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        "📥 Excel жүктеу", callback_data=f"hist_excel_{date_str}_{para}"))
+    markup.add(types.InlineKeyboardButton("◀️ Назад", callback_data=f"hist_day_{date_str}"))
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id,
+        reply_markup=markup, parse_mode="HTML")
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("hist_excel_"))
+@check_access_cb
+def hist_download_excel(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "🚫"); return
+    rest = call.data[len("hist_excel_"):]; last_us = rest.rfind("_")
+    date_str = rest[:last_us]; para = int(rest[last_us + 1:])
+    with db_cursor() as (_, cursor):
+        cursor.execute(
+            "SELECT student_name,status FROM attendance WHERE date=%s AND para=%s ORDER BY student_name",
+            (date_str, para))
+        records = cursor.fetchall()
+        cursor.execute("SELECT DISTINCT subject FROM attendance WHERE date=%s AND para=%s", (date_str, para))
+        sr = cursor.fetchone()
+    subject = sr[0] if sr else "—"
+    path = generate_attendance_excel(records, None, date_str, para, subject)
+    if path:
+        ok = send_excel_file(call.message.chat.id, path,
+            caption=f"📊 Барлау: {date_str} | {para}-пара: {subject}")
+        bot.answer_callback_query(call.id, "✅ Excel жіберілді!" if ok else "❌ Жіберу қатесі.")
+    else:
+        bot.answer_callback_query(call.id, "❌ Excel жасалмады.")
+
+def _build_attendance_markup(session):
+    idx = session["current_index"]
+    if idx >= len(session["students"]): return None, None
+    student = session["students"][idx]
+    sid, sname = student[0], student[1]
+    total = len(session["students"]); done = len(session["results"])
+    markup = types.InlineKeyboardMarkup()
+    markup.row(
+        types.InlineKeyboardButton("✅ Бар", callback_data=f"att_mark_present_{sid}"),
+        types.InlineKeyboardButton("❌ Жоқ", callback_data=f"att_mark_absent_{sid}"))
+    markup.add(types.InlineKeyboardButton("🏁 Жуумақлау", callback_data="att_finish"))
+    text = (f"📊 <b>Барлау — {session['para']}-пара: {session['subject']}</b>\n"
+            f"📅 {session['date']}\n{'─'*30}\n👤 <b>{sname}</b>\n{'─'*30}\n"
+            f"<i>{done}/{total} белгіленді</i>")
+    return text, markup
+
+def _finish_attendance(message, admin_id):
+    session = load_attendance_session(admin_id)
+    if not session: return
+    delete_attendance_session(admin_id)
+    date_str = session["date"]; para = session["para"]
+    subject = session["subject"]; students = session["students"]; results = session["results"]
+    present_list = []; absent_list = []
+    try:
+        with db_cursor() as (conn, cursor):
+            for item in students:
+                sid, sname = item[0], item[1]
+                status = results.get(sid, "absent")
+                cursor.execute(
+                    "INSERT INTO attendance(date,para,subject,student_id,student_name,status) "
+                    "VALUES(%s,%s,%s,%s,%s,%s)",
+                    (date_str, para, subject, sid, sname, status))
+                if status == "present": present_list.append(sname)
+                else: absent_list.append((sid, sname))
+            conn.commit()
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Барлауды сақлауда қате: {e}"); return
+    total = len(students)
+    result_text = (
+        f"📊 <b>Барлау нәтижесі сақталды!</b>\n"
+        f"📅 {date_str} | {para}-пара: <b>{subject}</b>\n{'─'*30}\n"
+        f"✅ Бар: <b>{len(present_list)}/{total}</b>\n"
+        f"❌ Жоқ: <b>{len(absent_list)}/{total}</b>\n{'─'*30}\n")
+    if absent_list:
+        result_text += "❌ <b>Жоқлар:</b>\n"
+        for _, n in absent_list: result_text += f"  • {n}\n"
+    else:
+        result_text += "🎉 Барлық студентлер бар!\n"
+    try:
+        bot.edit_message_text(result_text, message.chat.id, message.message_id,
+            parse_mode="HTML", reply_markup=None)
+    except:
+        bot.send_message(message.chat.id, result_text, parse_mode="HTML")
+    path = generate_attendance_excel(students, results, date_str, para, subject)
+    if path: send_excel_file(message.chat.id, path,
+        caption=f"📊 {date_str} | {para}-пара: {subject}")
+    for sid, sname in absent_list:
+        try:
+            bot.send_message(sid,
+                f"⚠️ <b>Ескертіу!</b>\n\nСіз бүгін <b>{para}-парада</b> (<b>{subject}</b>) болмадыңыз!\n"
+                f"📅 {date_str}\n\nСебебіңізді группаға хабарлаңыз.")
+        except: pass
+    bot.send_message(message.chat.id,
+        "✅ Барлау сақталды!\n📅 Тарихты <b>Барлау тарихы</b> арқылы ашыңыз.",
+        reply_markup=attendance_submenu())
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     Thread(target=lambda: bot.infinity_polling(), daemon=True).start()
