@@ -191,10 +191,35 @@ def clean_rate_limit():
                 del _rate_limit[uid]
 
 # ── ACCESS HELPERS ────────────────────────────────────────────
+_blocked_cache: set = set()
+_blocked_cache_lock = Lock()
+_blocked_cache_loaded = False
+
+def _load_blocked_cache():
+    global _blocked_cache_loaded
+    if _blocked_cache_loaded: return
+    with _blocked_cache_lock:
+        if _blocked_cache_loaded: return
+        try:
+            with db_cursor() as (_, cursor):
+                cursor.execute("SELECT user_id FROM blocked_users")
+                ids = {r[0] for r in cursor.fetchall()}
+            _blocked_cache.clear()
+            _blocked_cache.update(ids)
+            _blocked_cache_loaded = True
+        except Exception as e:
+            logger.warning(f"_load_blocked_cache: {e}")
+
 def is_blocked(uid):
-    with db_cursor() as (_, cursor):
-        cursor.execute("SELECT user_id FROM blocked_users WHERE user_id=%s", (uid,))
-        return cursor.fetchone() is not None
+    _load_blocked_cache()
+    with _blocked_cache_lock:
+        return uid in _blocked_cache
+
+def _add_to_blocked_cache(uid):
+    with _blocked_cache_lock: _blocked_cache.add(uid)
+
+def _remove_from_blocked_cache(uid):
+    with _blocked_cache_lock: _blocked_cache.discard(uid)
 
 def is_authorized(uid):
     if is_admin(uid): return True
@@ -995,6 +1020,7 @@ def handle_block_user(message):
                 "ON CONFLICT(user_id) DO UPDATE SET reason=excluded.reason",
                 (uid, reason))
             conn.commit()
+        _add_to_blocked_cache(uid)
         bot.send_message(message.chat.id,
             f"✅ <code>{uid}</code> блокланды!\nСебеп: {reason}", reply_markup=block_submenu())
         try:
@@ -1039,6 +1065,7 @@ def handle_unblock_user(message):
         with db_cursor() as (conn, cursor):
             cursor.execute("DELETE FROM blocked_users WHERE user_id=%s", (uid,))
             conn.commit()
+        _remove_from_blocked_cache(uid)
         bot.send_message(message.chat.id,
             f"✅ <code>{uid}</code> блоктан шығарылды!", reply_markup=block_submenu())
     except Exception as e:
@@ -2301,22 +2328,4 @@ def _delete_table_item(message, table):
                 conn.commit()
                 bot.send_message(message.chat.id, f"✅ ID:{rid} өшірілді.", reply_markup=delete_submenu())
     except Exception as e:
-        logger.error(f"_delete_table_item({table}): {e}", exc_info=True)
-        bot.send_message(message.chat.id, f"❌ DB қатесі: {e}", reply_markup=delete_submenu())
-
-def delete_material(message): _delete_table_item(message, "materials")
-def delete_gallery_item(message): _delete_table_item(message, "gallery")
-def delete_news_item(message): _delete_table_item(message, "user_news")
-
-# ── СТАТИСТИКА, СТУДЕНТЛЕР, т.б. ─────────────────────────────
-@bot.message_handler(func=lambda m: m.text in [
-    "👥 Студентлер", "❗ Сабақ болмайды", "📈 Статистика", "📩 Ус/Ша келген"])
-@check_access
-def admin_panel_actions(message):
-    if not is_admin(message.from_user.id):
-        bot.send_message(message.chat.id, "🚫 Сіз админ емессіз!")
-        return
-    if message.text == "👥 Студентлер":
-        with db_cursor() as (_, cursor):
-            cursor.execute(
-                "SELECT id,u
+        logger.error(f"_delete_table_item({table}): {e}", ex
