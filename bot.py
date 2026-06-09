@@ -2167,9 +2167,9 @@ def start_attendance(message):
         return
     markup = types.InlineKeyboardMarkup()
     for i, (subject, time_) in enumerate(lessons, 1):
-    markup.add(types.InlineKeyboardButton(
-        text=f"{i}-пара: {subject} ({time_})",
-        callback_data=f"att_para_{i}"))  # _subject өшириңиз
+        markup.add(types.InlineKeyboardButton(
+            text=f"{i}-пара: {subject} ({time_})",
+            callback_data=f"att_para_{i}"))
     bot.send_message(message.chat.id,
         f"📊 <b>Барлау — {today}</b>\n\nҚай параны белгилейсиз:", reply_markup=markup)
 
